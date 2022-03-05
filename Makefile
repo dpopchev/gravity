@@ -34,27 +34,36 @@ FIND_PYFILES = $(shell find $(1)/ $(FIND_EXCLUDE) -print 2> /dev/null)
 
 SRCS := $(call FIND_PYFILES,$(SRC_DIR))
 LIBS := $(call FIND_PYFILES,$(LIB_DIR))
-UNITTEST_PYFILES := $(call FIND_PYFILES,$(TESTS_DIR))
 
 PYFILES = $(LIBS) $(SRCS)
 ifdef FILE
 	PYFILES = $(FILE)
 endif
 
+UNITTEST_PYFILES := $(call FIND_PYFILES,$(TESTS_DIR))
+
 COMPILE_DUMMIES_DIR := $(DUMMIES_DIR)/compile
-PYFILES_MOD_DUMMIES_COMPILE := $(addprefix $(COMPILE_DUMMIES_DIR)/,$(PYFILES:%=%.mod)) $(addprefix $(COMPILE_DUMMIES_DIR)/,$(UNITTEST_PYFILES:%=%.mod))
+PYFILES_MOD_DUMMIES_COMPILE := $(addprefix $(COMPILE_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
 
 LINT_DUMMIES_DIR := $(DUMMIES_DIR)/lint
-PYFILES_MOD_DUMMIES_LINT := $(addprefix $(LINT_DUMMIES_DIR)/,$(PYFILES:%=%.mod)) $(addprefix $(LINT_DUMMIES_DIR)/,$(UNITTEST_PYFILES:%=%.mod))
+PYFILES_MOD_DUMMIES_LINT := $(addprefix $(LINT_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
 
 FORMAT_DUMMIES_DIR := $(DUMMIES_DIR)/format
-PYFILES_MOD_DUMMIES_FORMAT := $(addprefix $(FORMAT_DUMMIES_DIR)/,$(PYFILES:%=%.mod)) $(addprefix $(FORMAT_DUMMIES_DIR)/,$(UNITTEST_PYFILES:%=%.mod))
+PYFILES_MOD_DUMMIES_FORMAT := $(addprefix $(FORMAT_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
 
 UNITTEST_DUMMIES_DIR := $(DUMMIES_DIR)/unittest
 PYFILES_MOD_DUMMIES_UNITTESTS := $(addprefix $(UNITTEST_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
 
 DOCTEST_DUMMIES_DIR := $(DUMMIES_DIR)/doctest
-PYFILES_MOD_DUMMIES_DOCTESTS := $(addprefix $(DOCTEST_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
+# TODO pytest fails to run doctest of files having .py suffix
+# TODO follow https://github.com/pytest-dev/pytest/issues/4476
+# TODO follow https://github.com/pytest-dev/pytest/issues/3520
+# TODO in current implementation only place for bare python files is in SRC
+# TODO thus we are skipping them until better resolution is found
+PYFILES_MOD_DUMMIES_DOCTESTS := $(addprefix $(DOCTEST_DUMMIES_DIR)/,$(patsubst %,%.mod,$(filter %.py,$(PYFILES))))
+
+BB_JUNIT_DIR = test-results/$(1)
+BB_JUNIT_XML = $(shell echo "$(1)" | sed -rn 's/\//\./gp').xml
 
 UML_DIR := $(DOC_DIR)/uml
 UML_SUFFIX := uml
@@ -79,7 +88,10 @@ clean_compile:
 	@rm --recursive --force $(DUMMIES_DIR)/compile
 
 .PHONY: lint ## pep8 compatibility check for specific FILE or all modified ones
-LINT = $(PYPATHLIB) pylint $(1)
+LINT = $(INTPR) -m pylint $(1)
+ifdef IS_BB_PIPELINE
+	LINT = $(INTPR) -m pylint --output-format=pylint_junit.JUnitReporter $(1) > $(call BB_JUNIT_DIR,lint)/$(call BB_JUNIT_XML,$(1))
+endif
 $(DUMMIES_DIR)/lint/%.mod: % | $(DUMMIES_DIR)
 	@$(MKDIR) $(dir $@)
 	@$(call PRINT_INFO,lint,$<)
@@ -153,15 +165,21 @@ BROWSER := firefox
 snakeviz: $(PROFILE_STATS)
 	@snakeviz --browser $(BROWSER) $(PROFILE_STATS)
 
-MAKE_TESTS_PARENT_DIR = $(shell echo $(basename $(1)) | sed -rn 's/$(LIB_DIR)|$(SRC_DIR)/$(TESTS_DIR)/p')
+EXTRACT_TESTS_PARENT_DIR = $(shell echo $(basename $(1)) | sed -rn 's/$(LIB_DIR)|$(SRC_DIR)/$(TESTS_DIR)/p')
+PYTEST := $(INTPR) -m pytest -v
+PYTEST_ALLOW_EMPTY_TESTS := || [ $$? -eq 5 ] && exit 0
 
 .PHONY: unittest ## run unitttests on modified files
-UNITTEST := $(INTPR) -m unittest discover -v
+UNITTEST = $(PYTEST) "$(1)" $(PYTEST_ALLOW_EMPTY_TESTS)
+ifdef IS_BB_PIPELINE
+	UNITTEST = $(PYTEST) --junit-xml=$(call BB_JUNIT_DIR,unittest)/$(call BB_JUNIT_XML,$(1)) "$(1)" $(PYTEST_ALLOW_EMPTY_TESTS)
+endif
+
 $(UNITTEST_DUMMIES_DIR)/%.mod: % | $(DUMMIES_DIR)
 	@$(MKDIR) $(dir $@)
-	@$(MKDIR) $(call MAKE_TESTS_PARENT_DIR,$<) || true
+	@$(MKDIR) $(call EXTRACT_TESTS_PARENT_DIR,$<)
 	@$(call PRINT_INFO,unittest,$<)
-	@$(UNITTEST) $(call MAKE_TESTS_PARENT_DIR,$<)
+	@$(call UNITTEST,$(call EXTRACT_TESTS_PARENT_DIR,$<))
 	@touch $@
 
 unittest: $(PYFILES_MOD_DUMMIES_UNITTESTS)
@@ -171,12 +189,15 @@ clean_unittest:
 	@rm --recursive --force $(DUMMIES_DIR)/unittest
 
 .PHONY: doctest ## run doctests on modified files
-DOCTEST := $(INTPR) -m doctest
+DOCTEST = $(PYTEST) --doctest-modules "$(1)" $(PYTEST_ALLOW_EMPTY_TESTS)
+ifdef IS_BB_PIPELINE
+	DOCTEST = $(PYTEST) --doctest-modules --junit-xml=$(call BB_JUNIT_DIR,doctest)/$(call BB_JUNIT_XML,$(1)) "$(1)" $(PYTEST_ALLOW_EMPTY_TESTS)
+endif
 
 $(DOCTEST_DUMMIES_DIR)/%.mod: % | $(DUMMIES_DIR)
 	@$(MKDIR) $(dir $@)
 	@$(call PRINT_INFO,doctest,$<)
-	@$(DOCTEST) $<
+	@$(call DOCTEST,$<)
 	@touch $@
 
 doctest: $(PYFILES_MOD_DUMMIES_DOCTESTS)
@@ -190,6 +211,23 @@ test: doctest unittest
 
 .PHONY: clean_test
 clean_test: clean_doctest clean_unittest
+
+PIP := $(INTPR) -m pip
+PIP_INSTALL = $(PIP) install "$1" > /dev/null
+PIP_SHOW = $(PIP) show $1
+
+REQ_FILE := requirements.txt
+REPLACE_REQ := grep --perl-regexp --only-matching '^[\w-]+' $(REQ_FILE)
+REPLACE_REQ += | sort --unique
+REPLACE_REQ += | xargs -n1 -I{} sh -c '$(call PIP_SHOW,{})'
+REPLACE_REQ += | sed -rn '/Name:/{s/Name: (.*)/\1==/;H;}; /Version:/{s/Version: (.*)/\1/;H;}; $${x;s/\n//;s/=\n/=/g;p;}'
+
+.PHONY: requirement ## pip wrapper to add requirement, pass with PACKAGE=<name>
+requirement:
+	@$(call PIP_INSTALL,$(PACKAGE))
+	@echo $(PACKAGE) >> $(REQ_FILE)
+	@$(REPLACE_REQ) > $(REQ_FILE)_new
+	@mv --backup=numbered $(REQ_FILE)_new $(REQ_FILE)
 
 .PHONY: build
 build:
@@ -379,4 +417,34 @@ sample: $(TEMPLATE_TARGETS) | $(GIT)
 #~.dummies/
 #~venv/
 #~env/
+#~*~
+#~ }}}
+#~
+#~ bitbucket-pipelines.yml {{{
+#~image: python:x.x.x
+#~
+#~pipelines:
+#~  default:
+#~    - parallel:
+#~        - step:
+#~            name: Lint
+#~            script:
+#~              - python -m pip install -r requirements.txt
+#~              - mkdir --parents test-results/lint
+#~              - export IS_BB_PIPELINE=1
+#~              - make -k lint
+#~        - step:
+#~            name: Doctest
+#~            script:
+#~              - python -m pip install -r requirements.txt
+#~              - mkdir --parents test-results/doctest
+#~              - export IS_BB_PIPELINE=1
+#~              - make -k doctest
+#~        - step:
+#~            name: Unittest
+#~            script:
+#~              - python -m pip install -r requirements.txt
+#~              - mkdir --parents test-results/unittest
+#~              - export IS_BB_PIPELINE=1
+#~              - make -k unittest
 #~ }}}
