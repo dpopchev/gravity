@@ -1,6 +1,6 @@
 # set preferred shell
 SHELL := /usr/bin/env bash
-PYPATHLIB := PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}./lib"
+PYPATHLIB := PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}./lib:../nrpytutorial"
 INTPR := $(PYPATHLIB) python3
 
 ## -----------------------------------------------------------------------------
