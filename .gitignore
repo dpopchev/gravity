@@ -1,0 +1,6 @@
+*.pyc
+__pycache__/
+.dummies/
+venv/
+env/
+*~
