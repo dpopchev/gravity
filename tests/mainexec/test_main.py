@@ -8,6 +8,7 @@ import importlib.util
 from pathlib import Path
 
 
+@unittest.skip('template')
 class TestMainFunctionStdoutPrint(unittest.TestCase):
     '''main function stdout verification'''
 
