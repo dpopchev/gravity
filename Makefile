@@ -34,10 +34,13 @@ FIND_PYFILES = $(shell find $(1)/ $(FIND_EXCLUDE) -print 2> /dev/null)
 
 SRCS := $(call FIND_PYFILES,$(SRC_DIR))
 LIBS := $(call FIND_PYFILES,$(LIB_DIR))
+TESTS := $(call FIND_PYFILES,$(TESTS_DIR))
 
 PYFILES = $(LIBS) $(SRCS)
+LINTFILES = $(PYFILES) $(TESTS)
 ifdef FILE
 	PYFILES = $(FILE)
+	LINTFILES = $(FILE)
 endif
 
 UNITTEST_PYFILES := $(call FIND_PYFILES,$(TESTS_DIR))
@@ -46,7 +49,10 @@ COMPILE_DUMMIES_DIR := $(DUMMIES_DIR)/compile
 PYFILES_MOD_DUMMIES_COMPILE := $(addprefix $(COMPILE_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
 
 LINT_DUMMIES_DIR := $(DUMMIES_DIR)/lint
-PYFILES_MOD_DUMMIES_LINT := $(addprefix $(LINT_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
+PYFILES_MOD_DUMMIES_LINT := $(addprefix $(LINT_DUMMIES_DIR)/,$(LINTFILES:%=%.mod))
+
+PYREVERSE_DUMMIES_DIR := $(DUMMIES_DIR)/pyreverse
+PYFILES_MOD_DUMMIES_PYREVERSE := $(addprefix $(PYREVERSE_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
 
 FORMAT_DUMMIES_DIR := $(DUMMIES_DIR)/format
 PYFILES_MOD_DUMMIES_FORMAT := $(addprefix $(FORMAT_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
@@ -103,6 +109,20 @@ lint: $(PYFILES_MOD_DUMMIES_LINT)
 .PHONY: clean_lint
 clean_lint:
 	@rm --recursive --force $(DUMMIES_DIR)/lint
+
+.PHONY: pyreverse ## pep8 compatibility check for specific FILE or all modified ones
+PYREVERSE = $(PYPATHLIB) pyreverse -ASmy -o png $(1)
+$(DUMMIES_DIR)/pyreverse/%.mod: % | $(DUMMIES_DIR)
+	@$(MKDIR) $(dir $@)
+	@$(call PRINT_INFO,pyreverse,$<)
+	@$(call PYREVERSE,$<)
+	@touch $@
+
+pyreverse: $(PYFILES_MOD_DUMMIES_PYREVERSE)
+
+.PHONY: clean_pyreverse
+clean_pyreverse:
+	@rm --recursive --force $(DUMMIES_DIR)/pyreverse
 
 .PHONY: format ## attempt to auto fix pep8 violations on a FILE or all modified ones
 FORMAT = $(PYPATHLIB) autopep8 --in-place --aggressive --aggressive --hang-closing $(1)
@@ -213,7 +233,7 @@ test: doctest unittest
 clean_test: clean_doctest clean_unittest
 
 PIP := $(INTPR) -m pip
-PIP_INSTALL = $(PIP) install "$1" > /dev/null
+PIP_INSTALL = $(PIP) install $1 > /dev/null
 PIP_SHOW = $(PIP) show $1
 
 REQ_FILE := requirements.txt
@@ -228,6 +248,10 @@ requirement:
 	@echo $(PACKAGE) >> $(REQ_FILE)
 	@$(REPLACE_REQ) > $(REQ_FILE)_new
 	@mv --backup=numbered $(REQ_FILE)_new $(REQ_FILE)
+
+.PHONY: requirements ## install packages from local requirements.txt
+requirements:
+	@$(call PIP_INSTALL,-r requirements.txt)
 
 .PHONY: build
 build:
@@ -429,21 +453,21 @@ sample: $(TEMPLATE_TARGETS) | $(GIT)
 #~        - step:
 #~            name: Lint
 #~            script:
-#~              - python -m pip install -r requirements.txt
+#~              - make requirements
 #~              - mkdir --parents test-results/lint
 #~              - export IS_BB_PIPELINE=1
 #~              - make -k lint
 #~        - step:
 #~            name: Doctest
 #~            script:
-#~              - python -m pip install -r requirements.txt
+#~              - make requirements
 #~              - mkdir --parents test-results/doctest
 #~              - export IS_BB_PIPELINE=1
 #~              - make -k doctest
 #~        - step:
 #~            name: Unittest
 #~            script:
-#~              - python -m pip install -r requirements.txt
+#~              - make requirements
 #~              - mkdir --parents test-results/unittest
 #~              - export IS_BB_PIPELINE=1
 #~              - make -k unittest
