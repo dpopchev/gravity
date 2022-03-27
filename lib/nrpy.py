@@ -2,13 +2,27 @@
 
 import shutil
 import os
-import sys
 import cmdline_helper as cmd
 
 # This should be done by Makefile
 class Ccode:
     """C code output directory builder; NOTE this should be handled by Makefile
 
+    Attributes
+    ----------
+    root: str
+        Root directory for generated C code and output
+    ccodes: str
+        C generated code name, child of root
+    ouptut: str
+        Output directory, child of ccodes
+
+    Methods
+    -------
+    build() -> None
+        Build directory structure; WARNING: Destructive
+
+    Sample usage
     >>> ccode = Ccode()
     >>> print(ccode.root)
     bin
@@ -16,6 +30,9 @@ class Ccode:
     bin/ccodes
     >>> print(ccode.output)
     bin/ccodes/output
+    >>> ccode.output = 'output2' # change target output directory
+    >>> print(ccode.output)
+    bin/ccodes/output2
     """
 
     def __init__(self, root='bin', ccodes='ccodes', output='output'):
@@ -24,7 +41,7 @@ class Ccode:
         self.output = output
 
     @property
-    def root(self):
+    def root(self): # pylint: disable=missing-function-docstring
         return self._root
 
     @root.setter
@@ -32,11 +49,12 @@ class Ccode:
         self._root = os.path.join(root)
 
     def build_root(self):
+        """build root directory"""
         shutil.rmtree(self.root, ignore_errors=True)
         cmd.mkdir(self.root)
 
     @property
-    def ccodes(self):
+    def ccodes(self):# pylint: disable=missing-function-docstring
         return self._ccodes
 
     @ccodes.setter
@@ -44,10 +62,11 @@ class Ccode:
         self._ccodes = os.path.join(self.root, ccodes)
 
     def build_ccodes(self):
+        """build ccodes directory"""
         cmd.mkdir(self.ccodes)
 
     @property
-    def output(self):
+    def output(self):# pylint: disable=missing-function-docstring
         return self._output
 
     @output.setter
@@ -55,9 +74,11 @@ class Ccode:
         self._output = os.path.join(self.ccodes, output)
 
     def build_output(self):
+        """build output directory"""
         cmd.mkdir(self.output)
 
     def build(self):
+        """Build directory structure defined by attribute names"""
         self.build_root()
         self.build_ccodes()
         self.build_output()
