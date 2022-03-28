@@ -4,6 +4,35 @@ import shutil
 import os
 import cmdline_helper as cmd
 
+from enum import Enum
+
+class CoordSystem(Enum):
+    SPHERICAL = 'Spherical'
+    SINHSPHERICAL = 'SinhSpherical'
+    SINHSPHERICALV2 = 'SinhSphericalv2'
+    CYLINDRICAL = 'Cylindrical'
+    SINHCYLINDRICAL = 'SinhCylindrical'
+    SYMTP = 'SymTP'
+    SINHSYMTP = 'SinhSymTP'
+
+    @classmethod
+    def pick(cls, system):
+        normalized = system.upper()
+        matches = (m for m in cls.__members__.items() if m[0] == normalized)
+
+        match = next(matches, None)
+        if match is None:
+            raise AttributeError('No matches')
+
+        match0 = next(matches, None)
+        if match0 is not None:
+            raise AttributeError('Too many matches')
+
+        return match[1]
+
+    def __str__(self):
+        return f'{self.value}'
+
 # This should be done by Makefile
 class Ccode:
     """C code output directory builder; NOTE this should be handled by Makefile
@@ -82,23 +111,3 @@ class Ccode:
         self.build_root()
         self.build_ccodes()
         self.build_output()
-
-# class SupportiveClass: # pylint: disable=too-few-public-methods
-#     '''Supportive class, can be very supportive
-#     Sample usage:
-#     >>> support = SupportiveClass('you can do it')
-#     >>> support.say()
-#     'Supportive class says: you can do it'
-#     '''
-
-#     def __init__(self, message):
-#         self.message = message
-
-#     def say(self):
-#         '''share some supportive toughts'''
-#         return f'Supportive class says: {self.message}'
-
-
-# def supportive_function(message):
-#     '''functions can also provide supportive messages'''
-#     return f'Supportive function says: {message}'
