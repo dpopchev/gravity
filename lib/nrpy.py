@@ -6,6 +6,7 @@ import cmdline_helper as cmd
 
 from enum import Enum
 
+
 class CoordSystem(Enum):
     SPHERICAL = 'Spherical'
     SINHSPHERICAL = 'SinhSpherical'
@@ -36,6 +37,7 @@ class CoordSystem(Enum):
     def as_string(self):
         return self.__str__()
 
+
 class RkMethod(Enum):
     EULER = 'Euler'
     RK2HEUN = 'RK2 Heun'
@@ -48,7 +50,7 @@ class RkMethod(Enum):
     RK4 = 'RK4'
     DP5 = 'DP5'
     DP5ALT = 'DP5alt'
-    CK5= 'CK5'
+    CK5 = 'CK5'
     DP6 = 'DP6'
     L6 = 'L6'
     DP8 = 'DP8'
@@ -75,6 +77,8 @@ class RkMethod(Enum):
         return self.__str__()
 
 # This should be done by Makefile
+
+
 class Ccode:
     """C code output directory builder; NOTE this should be handled by Makefile
 
@@ -111,7 +115,7 @@ class Ccode:
         self.output = output
 
     @property
-    def root(self): # pylint: disable=missing-function-docstring
+    def root(self):  # pylint: disable=missing-function-docstring
         return self._root
 
     @root.setter
@@ -124,7 +128,7 @@ class Ccode:
         cmd.mkdir(self.root)
 
     @property
-    def ccodes(self):# pylint: disable=missing-function-docstring
+    def ccodes(self):  # pylint: disable=missing-function-docstring
         return self._ccodes
 
     @ccodes.setter
@@ -136,7 +140,7 @@ class Ccode:
         cmd.mkdir(self.ccodes)
 
     @property
-    def output(self):# pylint: disable=missing-function-docstring
+    def output(self):  # pylint: disable=missing-function-docstring
         return self._output
 
     @output.setter
@@ -152,6 +156,7 @@ class Ccode:
         self.build_root()
         self.build_ccodes()
         self.build_output()
+
 
 class CoreParameters():
     """summary of step 2
@@ -202,7 +207,7 @@ class CoreParameters():
     GammaDriving2ndOrder_Covariant
     """
 
-    def __init__(self,**kwargs):
+    def __init__(self, **kwargs):
         self.spatial_dim = kwargs.get('spatial_dim', 3)
         self.coord_system = kwargs.get('coord_system', 'spherical')
         self.domain_size = kwargs.get('domain_size', 32)
@@ -214,7 +219,8 @@ class CoreParameters():
         self.real = kwargs.get('real', 'double')
         self.cfl_factor = kwargs.get('cfl_factor', 0.5)
         self.lapse_condition = kwargs.get('lapse_condition', 'OnePlusLog')
-        self.shift_condition = kwargs.get('shift_condition', 'GammaDriving2ndOrder_Covariant')
+        self.shift_condition = kwargs.get(
+            'shift_condition', 'GammaDriving2ndOrder_Covariant')
 
     @property
     def coord_system(self):
