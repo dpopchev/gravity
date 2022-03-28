@@ -158,6 +158,7 @@ class CoreParameters():
 
     Attributes
     ----------
+    spatial_dim: int = 3
     coord_system: CoordSystem = CoordSystem.Spherical
     domain_size: int = 32
     sinh_width: float = 0.2
@@ -171,6 +172,8 @@ class CoreParameters():
     shift_condition = 'GammaDriving2ndOrder_Covariant'
 
     >>> core_parameters = CoreParameters()
+    >>> print(core_parameters.spatial_dim)
+    3
     >>> print(core_parameters.coord_system)
     Spherical
     >>> isinstance(core_parameters.coord_system, CoordSystem)
@@ -200,6 +203,7 @@ class CoreParameters():
     """
 
     def __init__(self,**kwargs):
+        self.spatial_dim = kwargs.get('spatial_dim', 3)
         self.coord_system = kwargs.get('coord_system', 'spherical')
         self.domain_size = kwargs.get('domain_size', 32)
         self.sinh_width = kwargs.get('sinh_width', 0.2)
@@ -210,7 +214,7 @@ class CoreParameters():
         self.real = kwargs.get('real', 'double')
         self.cfl_factor = kwargs.get('cfl_factor', 0.5)
         self.lapse_condition = kwargs.get('lapse_condition', 'OnePlusLog')
-        self.shift_condition = kwargs.get('shift_condition', 'GammaDriving1ndOrder_Covariant')
+        self.shift_condition = kwargs.get('shift_condition', 'GammaDriving2ndOrder_Covariant')
 
     @property
     def coord_system(self):
