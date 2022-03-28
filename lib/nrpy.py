@@ -36,7 +36,7 @@ class CoordSystem(Enum):
     def as_string(self):
         return self.__str__()
 
-class RKmethod(Enum):
+class RkMethod(Enum):
     EULER = 'Euler'
     RK2HEUN = 'RK2 Heun'
     RK2MP = 'RK2 MP'
