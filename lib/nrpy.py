@@ -152,3 +152,78 @@ class Ccode:
         self.build_root()
         self.build_ccodes()
         self.build_output()
+
+class CoreParameters():
+    """summary of step 2
+
+    Attributes
+    ----------
+    coord_system: CoordSystem = CoordSystem.Spherical
+    domain_size: int = 32
+    sinh_width: float = 0.2
+    sinh2_const_dr: float = 0.05
+    symtp_bscale: float = 0.5
+    rk_method: RkMethod = RkMethod.RK4
+    fd_order: int = 4
+    real: str = 'double'
+    cfl_factor: float = 0.5
+    lapse_condition = 'OnePlusLog'
+    shift_condition = 'GammaDriving2ndOrder_Covariant'
+
+    >>> core_parameters = CoreParameters()
+    >>> print(core_parameters.coord_system)
+    Spherical
+    >>> isinstance(core_parameters.coord_system, CoordSystem)
+    True
+    >>> print(core_parameters.domain_size)
+    32
+    >>> print(core_parameters.sinh_width)
+    0.2
+    >>> print(core_parameters.sinhv2_const_dr)
+    0.05
+    >>> print(core_parameters.symtp_bscale)
+    0.5
+    >>> print(core_parameters.rk_method)
+    RK4
+    >>> isinstance(core_parameters.rk_method, RkMethod)
+    True
+    >>> print(core_parameters.fd_order)
+    4
+    >>> print(core_parameters.real)
+    double
+    >>> print(core_parameters.cfl_factor)
+    0.5
+    >>> print(core_parameters.lapse_condition)
+    OnePlusLog
+    >>> print(core_parameters.shift_condition)
+    GammaDriving2ndOrder_Covariant
+    """
+
+    def __init__(self,**kwargs):
+        self.coord_system = kwargs.get('coord_system', 'spherical')
+        self.domain_size = kwargs.get('domain_size', 32)
+        self.sinh_width = kwargs.get('sinh_width', 0.2)
+        self.sinhv2_const_dr = kwargs.get('sinhv2_const_dr', 0.05)
+        self.symtp_bscale = kwargs.get('symtp_bscale', 0.5)
+        self.rk_method = kwargs.get('rk_method', 'rk4')
+        self.fd_order = kwargs.get('fd_order', 4)
+        self.real = kwargs.get('real', 'double')
+        self.cfl_factor = kwargs.get('cfl_factor', 0.5)
+        self.lapse_condition = kwargs.get('lapse_condition', 'OnePlusLog')
+        self.shift_condition = kwargs.get('shift_condition', 'GammaDriving1ndOrder_Covariant')
+
+    @property
+    def coord_system(self):
+        return self._coord_system
+
+    @coord_system.setter
+    def coord_system(self, value):
+        self._coord_system = CoordSystem.pick(value)
+
+    @property
+    def rk_method(self):
+        return self._rk_method
+
+    @rk_method.setter
+    def rk_method(self, value):
+        self._rk_method = RkMethod.pick(value)
