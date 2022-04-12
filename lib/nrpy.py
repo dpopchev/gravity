@@ -35,11 +35,11 @@ class ScalarFieldInitialData:
         self.rmax = domain_size * domain_weight
         self.ccodesdir = ccodesdir
 
-    def create(self):
-        self.generage_initial_data()
-        self.create_c_code()
+    def build(self):
+        self.build_initial_data()
+        self.build_c_code()
 
-    def create_initial_data(self):
+    def build_initial_data(self):
         sfid.ScalarField_InitialData(self.outputfilename,
                                      self.id_family,
                                      self.pulse_amplitude,
@@ -48,14 +48,14 @@ class ScalarFieldInitialData:
                                      self.nr,
                                      self.rmax)
 
-    def create_c_code(self):
+    def build_c_code(self):
         sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(
             Ccodesdir=self.ccodesdir)
 
 class FindTimestepHeader:
     def __init__(self, out_dir=CCODESDIR):
         self.ccodesdir = os.path.join(self.out_dir)
-    def create(self):
+    def build(self):
         rfm.out_timestep_func_to_file(os.path.join(self.ccodesdir,"find_timestep.h"))
 
 class NumericalGrids:
@@ -91,27 +91,28 @@ class NumericalGrids:
         self.lapse_condition = lapse_condition
         self.shift_condition = shift_condition
 
-    def create(self):
-        self.create_ccodesdir()
-        self.create_output()
-        self.create_dim()
-        self.create_rk_timestepping_code()
-        self.create_coord_system_numerical_grid()
+    def build(self):
+        self.build_ccodesdir()
+        self.build_output()
+        self.build_dim()
+        self.build_rk_timestepping_code()
+        self.build_coord_system_numerical_grid()
         par.set_parval_from_str('finite_difference::FD_CENTDRIVS_ORDER', self.fd_order)
+        self.build_simd()
 
     
-    def create_ccodesdir(self):
+    def build_ccodesdir(self):
         shutil.rmtree(self.ccodesdir, ignore_errors=True)
         cmd.mkdir(self.ccodesdir)
 
-    def create_output(self):
+    def build_output(self):
         cmd.mkdir(outdir)
 
-    def create_dim(self):
+    def build_dim(self):
         par.set_parval_from_str(*self.spatial_dimensions)
         self.dim = par.parval_from_str(self.spatial_dimensions[0])
 
-    def create_rk_timestepping_code(self):
+    def build_rk_timestepping_code(self):
         rk_order = Butcher_dict[self.rk_method][1]
         moltimestepping = 'MoLtimestepping/'
         cmd.mkdir(os.path.join(self.ccodesdir, moltimestepping))
@@ -130,6 +131,6 @@ enforce_detgammahat_constraint(&rfmstruct, &params,                     RK_OUTPU
 
             )
 
-    def create_coord_system_numerical_grid(self):
+    def build_coord_system_numerical_grid(self):
         par.set_parval_from_str('reference_metric::CoordSystem', self.coord_system)
         rfm.reference_metric()
