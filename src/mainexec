@@ -1,22 +1,7 @@
 #!/usr/bin/env python3
-'''Simple script to demonstrate project structure and Makefile abilities'''
 
-from supportive import SupportiveClass, supportive_function
-
-
-def main():
-    '''main executable, C-style like, but not mandatory'''
-    print('Hello from mainexec, a stand alone python script')
-
-    print('It is taking advantage of supportive module, found under lib/')
-
-    support = SupportiveClass('here is my number')
-    support_said = support.say()
-    print(support_said)
-
-    support_said = supportive_function('so call me maybe')
-    print(support_said)
-
+from nrpy import ScalarFieldCollapse
 
 if __name__ == '__main__':
-    main()
+    collapse = ScalarFieldCollapse()
+    collapse.build()

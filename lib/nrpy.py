@@ -26,7 +26,7 @@ class NumericalGrids:
                  fd_order=4,
                  real='double',
                  cfl_factor=0.5,
-                 lapse_condition='OnePlusLog'
+                 lapse_condition='OnePlusLog',
                  shift_condition='GammaDriving2ndOrder_Covariant'
                  ):
         self.ccodesdir = os.path.join(out_dir)
@@ -54,7 +54,8 @@ class NumericalGrids:
             'finite_difference::FD_CENTDRIVS_ORDER',
             self.fd_order)
         self.build_simd_headers()
-        self.set_parval_from_str("indexdexp::symmetry_axes", "12")
+        par.set_parval_from_str("indexdexp::symmetry_axes", "12")
+        self.build_timestep()
 
     def build_ccodesdir(self):
         shutil.rmtree(self.ccodesdir, ignore_errors=True)
@@ -99,17 +100,9 @@ enforce_detgammahat_constraint(&rfmstruct, &params,                     RK_OUTPU
         simd_headers_dst = os.path.join(self.ccodesdir, 'SIMD/')
         shutil.copy(simd_headers_src, simd_headrs_dst)
 
-
-class FindTimestepHeader:
-    def __init__(self, out_dir=CCODESDIR):
-        self.ccodesdir = os.path.join(self.out_dir)
-
-    def build(self):
+    def build_timestep(self):
         rfm.out_timestep_func_to_file(
-            os.path.join(
-                self.ccodesdir,
-                "find_timestep.h"))
-
+            os.path.join( self.ccodesdir, "find_timestep.h"))
 
 class ScalarFieldInitialData:
 
@@ -145,10 +138,21 @@ class ScalarFieldInitialData:
                                      self.id_family,
                                      self.pulse_amplitude,
                                      self.pulse_center,
-                                     self.pulse_width
+                                     self.pulse_width,
                                      self.nr,
                                      self.rmax)
 
     def build_c_code(self):
         sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(
             Ccodesdir=self.ccodesdir)
+
+class ScalarFieldCollapse:
+    def __init__(self):
+        self.numerical_grids = NumericalGrids()
+        self.scalar_field_init_data = ScalarFieldInitialData()
+
+        self.steps = (self.numerical_grids, self.scalar_field_init_data)
+
+    def build(self):
+        for step in self.steps:
+            step.build()
