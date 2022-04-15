@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
 
-from nrpy import ScalarFieldCollapse
+from nrpy import CodesDir, SpatialDimension, CoordSystem, Derivatives
 
 if __name__ == '__main__':
-    collapse = ScalarFieldCollapse()
-    collapse.build()
+    codesdir = CodesDir()
+    spatial = SpatialDimension()
+    coord_system = CoordSystem()
+    derivatives = Derivatives(ccodesdir=codesdir)
+
+    codesdir.build()
+    spatial.build()
+    derivatives.build_c_code_generation()
+    coord_system.build_numerical_grid()
+    derivatives.build_finite_difference_order()
