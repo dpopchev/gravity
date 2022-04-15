@@ -39,16 +39,21 @@ class CoordSystem:
                  domain_size = 32,
                  sinh_width = 0.2,
                  sinhv2_const_dr = 0.2,
-                 symtp_bscale = 0.5):
+                 symtp_bscale = 0.5,
+                 symmetry_axes = 12):
         self.coord_system = coord_system
         self.domain_size = domain_size
         self.sinh_width = sinh_width
         self.sinhv2_const_dr = sinhv2_const_dr
         self.symtp_bscale = symtp_bscale
+        self.symmetry_axes = str(symmetry_axes)
 
     def build_numerical_grid(self):
         par.set_parval_from_str('reference_metric::CoordSystem', self.coord_system)
         rfm.reference_metric()
+
+    def build_symmetry(self):
+        par.set_parval_from_str('indexedexp::symmetry_axes', self.symmetry_axes)
 
 class Derivatives:
     def __init__(self,
@@ -95,3 +100,28 @@ class Derivatives:
                                   )
     def build_finite_difference_order(self):
         par.set_parval_from_str('finite_difference::FD_CENTDERIVS_ORDER', self.fd_order)
+
+class SimdIntrinsics:
+    def __init__(self, ccodesdir=None, source='../nrpytutorial/'):
+        self.ccodesdir=ccodesdir
+        self.source = os.path.join(source, 'SIMD', 'SIMD_intrinsics.h')
+        self.target = os.path.join(self.ccodesdir.root, 'SIMD')
+
+    def build(self):
+        cmd.mkdir(self.target)
+        shutil.copy(self.source, self.target)
+
+def build_scalar_field_collapse():
+    codesdir = CodesDir()
+    spatial = SpatialDimension()
+    coord_system = CoordSystem()
+    derivatives = Derivatives(ccodesdir=codesdir)
+    simd = SimdIntrinsics(ccodesdir=codesdir)
+
+    codesdir.build()
+    spatial.build()
+    derivatives.build_c_code_generation()
+    coord_system.build_numerical_grid()
+    derivatives.build_finite_difference_order()
+    simd.build()
+    coord_system.build_symmetry()
