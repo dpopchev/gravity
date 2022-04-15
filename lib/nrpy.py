@@ -26,12 +26,18 @@ class CodesDir:
             cmd.mkdir(directory)
 
 class SpatialDimension:
-    def __init__(self, value=3):
+    def __init__(self, value=3, ccodesdir=None):
         self.value = value
         self.dim = None
-    def build(self):
+        self.ccodesdir = ccodesdir
+
+    def build_grid(self):
         par.set_parval_from_str('grid::DIM', self.value)
         self.dim = par.parval_from_str('grid::DIM')
+
+    def build_find_timestep(self):
+        target = os.path.join(self.ccodesdir.root, 'find_timestep.h')
+        rfm.out_timestep_func_to_file(target)
 
 class CoordSystem:
     def __init__(self,
@@ -113,15 +119,16 @@ class SimdIntrinsics:
 
 def build_scalar_field_collapse():
     codesdir = CodesDir()
-    spatial = SpatialDimension()
+    spatial = SpatialDimension(ccodesdir=codesdir)
     coord_system = CoordSystem()
     derivatives = Derivatives(ccodesdir=codesdir)
     simd = SimdIntrinsics(ccodesdir=codesdir)
 
     codesdir.build()
-    spatial.build()
+    spatial.build_grid()
     derivatives.build_c_code_generation()
     coord_system.build_numerical_grid()
     derivatives.build_finite_difference_order()
     simd.build()
     coord_system.build_symmetry()
+    spatial.build_find_timestep()
