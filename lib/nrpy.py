@@ -9,20 +9,28 @@ import cmdline_helper as cmd     # NRPy+: Multi-platform Python command-line int
 import shutil, os, sys           # Standard Python modules for multiplatform OS-level functions
 import MoLtimestepping.C_Code_Generation as MoL
 from MoLtimestepping.RK_Butcher_Table_Dictionary import Butcher_dict
+import ScalarField.ScalarField_InitialData as sfid
+
+from dataclasses import dataclass, InitVar
 
 CCODESDIR = os.path.join("ccodesdir_default")
 
+@dataclass
 class CodesDir:
-    def __init__(self, root=CCODESDIR, output = 'output'):
-        self.root = root
-        self.outdir = os.path.join(self.root, output)
+    root: os.PathLike = CCODESDIR
+    output: os.PathLike = None
+    outputdir: InitVar[str] = 'output'
+
+    def __post_init__(self, outputdir):
+        if self.output is None:
+            self.output = os.path.join(self.root, outputdir)
 
     def clean(self):
         shutil.rmtree(self.root, ignore_errors=True)
 
     def build(self):
         self.clean()
-        for directory in (self.root, self.outdir):
+        for directory in (self.root, self.output):
             cmd.mkdir(directory)
 
 class SpatialDimension:
