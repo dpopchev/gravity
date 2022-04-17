@@ -13,6 +13,8 @@ import ScalarField.ScalarField_InitialData as sfid
 
 from dataclasses import dataclass, InitVar
 
+import pdb
+
 CCODESDIR = os.path.join("ccodesdir_default")
 
 @dataclass
@@ -124,36 +126,42 @@ class SimdIntrinsics:
         self.build_destination()
         shutil.copy(self.source, self.destination)
 
-# class ScalarFiedInitialData:
-#     def __init__(self,
-#                  outputdir = None,
-#                  outputfilename = 'SFID.txt',
-#                  id_family = 'Gaussian_pulse',
-#                  pulse_amplitude = 0.4,
-#                  pulse_center = 0,
-#                  pulse_width = 1,
-#                  nr = 30000,
-#                  domain_size = None,
-#                  rmax_weight = 1.1
-#                  ):
-#         self.outputfilename = os.path.join(outputdir.outdir, outputfilename)
-#         self.id_family = id_family
+@dataclass
+class ScalarFieldInitialData:
+    ccodesdir: CodesDir = None
+    coord_system: InitVar[CoordSystem] = None
+    outfilename: InitVar[str] = 'SFID.txt'
+    output: str = None
+    id_family: str = "Gaussian_pulse"
+    pulse_amplitude: float = 0.4
+    pulse_center: float = 0
+    pulse_width: float = 1
+    nr: int = 30000
+    rmax_weight: InitVar[float] = 1.1
+    rmax: float = None
 
-# # Step 2.b: Set the initial data parameters
-# # outputfilename  = os.path.join(,"SFID.txt")
-# ID_Family       = "Gaussian_pulse"
-# pulse_amplitude = 0.4
-# pulse_center    = 0
-# pulse_width     = 1
-# Nr              = 30000
-# # rmax            = domain_size*1.1
+    def __post_init__(self, coord_system, outfilename, rmax_weight ):
+        if self.output is None:
+            self.output = os.path.join( self.ccodesdir.output, outfilename )
 
-# # Step 2.c: Generate the initial data
-# # sfid.ScalarField_InitialData(outputfilename,ID_Family,
-# #                              pulse_amplitude,pulse_center,pulse_width,Nr,rmax)
+        if self.rmax is None:
+            self.rmax = coord_system.domain_size*rmax_weight
 
-# # Step 2.d: Generate the needed C code
-# # sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=Ccodesdir)
+    def build_initial_data(self):
+        sfid.ScalarField_InitialData(self.output,
+                                     self.id_family,
+                                     self.pulse_amplitude,
+                                     self.pulse_center,
+                                     self.pulse_width,
+                                     self.nr,
+                                     self.rmax)
+
+    def build_c_code(self):
+        sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=self.ccodesdir.root)
+
+    def build(self):
+        self.build_initial_data()
+        self.build_c_code()
 
 
 def build_scalar_field_collapse():
@@ -162,6 +170,8 @@ def build_scalar_field_collapse():
     coord_system = CoordSystem()
     derivatives = Derivatives(ccodesdir=codesdir)
     simd = SimdIntrinsics(ccodesdir=codesdir)
+    sf_init_data = ScalarFieldInitialData(ccodesdir=codesdir,
+                                          coord_system=coord_system)
 
     codesdir.build()
     spatial.build_grid()
@@ -171,3 +181,4 @@ def build_scalar_field_collapse():
     simd.build()
     coord_system.build_symmetry()
     spatial.build_find_timestep()
+    sf_init_data.build()
