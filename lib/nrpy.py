@@ -33,11 +33,11 @@ class CodesDir:
         for directory in (self.root, self.output):
             cmd.mkdir(directory)
 
+@dataclass
 class SpatialDimension:
-    def __init__(self, value=3, ccodesdir=None):
-        self.value = value
-        self.dim = None
-        self.ccodesdir = ccodesdir
+    value: int = 3
+    dim: str = None
+    ccodesdir: CodesDir = None
 
     def build_grid(self):
         par.set_parval_from_str('grid::DIM', self.value)
@@ -47,20 +47,14 @@ class SpatialDimension:
         target = os.path.join(self.ccodesdir.root, 'find_timestep.h')
         rfm.out_timestep_func_to_file(target)
 
+@dataclass
 class CoordSystem:
-    def __init__(self,
-                 coord_system = 'Spherical',
-                 domain_size = 32,
-                 sinh_width = 0.2,
-                 sinhv2_const_dr = 0.2,
-                 symtp_bscale = 0.5,
-                 symmetry_axes = 12):
-        self.coord_system = coord_system
-        self.domain_size = domain_size
-        self.sinh_width = sinh_width
-        self.sinhv2_const_dr = sinhv2_const_dr
-        self.symtp_bscale = symtp_bscale
-        self.symmetry_axes = str(symmetry_axes)
+    coord_system: str = 'Spherical'
+    domain_size: float = 32
+    sinh_width: float = 0.2
+    sinhv2_const_dr: float =0.05
+    symtp_bscale: float = 0.5
+    symmetry_axes: str = '12'
 
     def build_numerical_grid(self):
         par.set_parval_from_str('reference_metric::CoordSystem', self.coord_system)
@@ -69,24 +63,16 @@ class CoordSystem:
     def build_symmetry(self):
         par.set_parval_from_str('indexedexp::symmetry_axes', self.symmetry_axes)
 
+@dataclass
 class Derivatives:
-    def __init__(self,
-                 rk_method = 'RK4',
-                 fd_order = 4,
-                 real = 'double',
-                 cfl_factor = 0.5,
-                 lapse_condition = 'OnePlusLog',
-                 shift_condition = 'GammaDriving2ndOrder_Covariant',
-                 dirname = 'MoLtimestepping',
-                 ccodesdir=None):
-        self.rk_method = rk_method
-        self.fd_order = fd_order
-        self.real = real
-        self.cfl_factor = cfl_factor
-        self.lapse_condition = lapse_condition
-        self.shift_condition = shift_condition
-        self.dirname = dirname
-        self.ccodesdir = ccodesdir
+    rk_method: str = 'RK4'
+    fd_order: int = 4
+    real: str = 'double'
+    cfl_factor: float = 0.5,
+    lapse_condition: str = 'OnePlusLog',
+    shift_condition: str = 'GammaDriving2ndOrder_Covariant',
+    dirname: str = 'MoLtimestepping',
+    ccodesdir: CodesDir = None
 
     def build_dir(self):
         self.root = os.path.join(self.ccodesdir.root,self.dirname)
@@ -115,7 +101,26 @@ class Derivatives:
     def build_finite_difference_order(self):
         par.set_parval_from_str('finite_difference::FD_CENTDERIVS_ORDER', self.fd_order)
 
+@dataclass
 class SimdIntrinsics:
+    ccodesdir: CodesDir = None
+    source_root: InitVar[str] = '../nrpytutorial/'
+    source: os.PathLike = None
+    destination: os.PathLike = None
+    simd_path: os.PathLike = os.path.join('SIMD', 'SIMD_intrinsics', 'SIMD_intrinsics.h')
+
+
+    def __post_init__(self, source_root):
+        if self.source is None:
+            self.source = os.path.join(source_root, 'SIMD', 'SIMD_intrinsics')
+
+        if self.destination is None:
+            self.destination = os.path.join(self.ccodesdir.root., 'SIMD', 'SIMD_intrinsics')
+    
+    
+
+
+
     def __init__(self, ccodesdir=None, source='../nrpytutorial/'):
         self.ccodesdir=ccodesdir
         self.source = os.path.join(source, 'SIMD', 'SIMD_intrinsics.h')
@@ -124,6 +129,39 @@ class SimdIntrinsics:
     def build(self):
         cmd.mkdir(self.target)
         shutil.copy(self.source, self.target)
+
+class ScalarFiedInitialData:
+    def __init__(self,
+                 outputdir = None,
+                 outputfilename = 'SFID.txt',
+                 id_family = 'Gaussian_pulse',
+                 pulse_amplitude = 0.4,
+                 pulse_center = 0,
+                 pulse_width = 1,
+                 nr = 30000,
+                 domain_size = None,
+                 rmax_weight = 1.1
+                 ):
+        self.outputfilename = os.path.join(outputdir.outdir, outputfilename)
+        self.id_family = id_family
+
+# Step 2.b: Set the initial data parameters
+# outputfilename  = os.path.join(,"SFID.txt")
+ID_Family       = "Gaussian_pulse"
+pulse_amplitude = 0.4
+pulse_center    = 0
+pulse_width     = 1
+Nr              = 30000
+# rmax            = domain_size*1.1
+
+# Step 2.c: Generate the initial data
+# sfid.ScalarField_InitialData(outputfilename,ID_Family,
+#                              pulse_amplitude,pulse_center,pulse_width,Nr,rmax)
+
+# Step 2.d: Generate the needed C code
+# sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=Ccodesdir)
+
+
 
 def build_scalar_field_collapse():
     codesdir = CodesDir()
