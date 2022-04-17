@@ -65,6 +65,7 @@ class CoordSystem:
     sinhv2_const_dr: float = 0.05
     symtp_bscale: float = 0.5
     derivatives: Derivatives = None
+    symmetry_axes: str = '12'
 
     def build_reference_metric(self):
         par.set_parval_from_str('reference_metric::CoordSystem', self.name)
@@ -74,9 +75,13 @@ class CoordSystem:
         par.set_parval_from_str('finite_difference::FD_CENTDERIVS_ORDER',
                                 self.derivatives.fd_order)
 
+    def build_symmetry_axes(self):
+        par.set_parval_from_str('indexedexp::symmetry_axes', self.symmetry_axes)
+
     def build(self):
         self.build_reference_metric()
         self.build_fd_order()
+        self.build_symmetry_axes()
 
 @dataclass
 class RungeKuttaTimesteppingCode:
