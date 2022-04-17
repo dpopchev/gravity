@@ -15,6 +15,8 @@ from dataclasses import dataclass, InitVar
 
 CCODESDIR = os.path.join("ccodesdir_default")
 
+import pdb
+
 @dataclass
 class CodesDir:
     root: os.PathLike = CCODESDIR
@@ -68,10 +70,10 @@ class Derivatives:
     rk_method: str = 'RK4'
     fd_order: int = 4
     real: str = 'double'
-    cfl_factor: float = 0.5,
-    lapse_condition: str = 'OnePlusLog',
-    shift_condition: str = 'GammaDriving2ndOrder_Covariant',
-    dirname: str = 'MoLtimestepping',
+    cfl_factor: float = 0.5
+    lapse_condition: str = 'OnePlusLog'
+    shift_condition: str = 'GammaDriving2ndOrder_Covariant'
+    dirname: str = 'MoLtimestepping'
     ccodesdir: CodesDir = None
 
     def build_dir(self):
@@ -104,63 +106,57 @@ class Derivatives:
 @dataclass
 class SimdIntrinsics:
     ccodesdir: CodesDir = None
-    source_root: InitVar[str] = '../nrpytutorial/'
-    source: os.PathLike = None
-    destination: os.PathLike = None
-    simd_path: os.PathLike = os.path.join('SIMD', 'SIMD_intrinsics', 'SIMD_intrinsics.h')
+    simd_source: InitVar[str] = '../nrpytutorial'
+    simd_path: InitVar[str] = os.path.join('SIMD')
+    simd_header: InitVar[str] = 'SIMD_intrinsics.h'
+    source: str = None
+    destination: str = None
 
-
-    def __post_init__(self, source_root):
+    def __post_init__(self, simd_source, simd_path, simd_header):
         if self.source is None:
-            self.source = os.path.join(source_root, 'SIMD', 'SIMD_intrinsics')
+            self.source = os.path.join(simd_source, simd_path, simd_header)
 
         if self.destination is None:
-            self.destination = os.path.join(self.ccodesdir.root., 'SIMD', 'SIMD_intrinsics')
-    
-    
+            self.destination = os.path.join(self.ccodesdir.root, simd_path)
 
-
-
-    def __init__(self, ccodesdir=None, source='../nrpytutorial/'):
-        self.ccodesdir=ccodesdir
-        self.source = os.path.join(source, 'SIMD', 'SIMD_intrinsics.h')
-        self.target = os.path.join(self.ccodesdir.root, 'SIMD')
+    def build_destination(self):
+        cmd.mkdir(self.destination)
 
     def build(self):
-        cmd.mkdir(self.target)
-        shutil.copy(self.source, self.target)
+        pdb.set_trace()
+        self.build_destination()
+        shutil.copy(self.source, self.destination)
 
-class ScalarFiedInitialData:
-    def __init__(self,
-                 outputdir = None,
-                 outputfilename = 'SFID.txt',
-                 id_family = 'Gaussian_pulse',
-                 pulse_amplitude = 0.4,
-                 pulse_center = 0,
-                 pulse_width = 1,
-                 nr = 30000,
-                 domain_size = None,
-                 rmax_weight = 1.1
-                 ):
-        self.outputfilename = os.path.join(outputdir.outdir, outputfilename)
-        self.id_family = id_family
+# class ScalarFiedInitialData:
+#     def __init__(self,
+#                  outputdir = None,
+#                  outputfilename = 'SFID.txt',
+#                  id_family = 'Gaussian_pulse',
+#                  pulse_amplitude = 0.4,
+#                  pulse_center = 0,
+#                  pulse_width = 1,
+#                  nr = 30000,
+#                  domain_size = None,
+#                  rmax_weight = 1.1
+#                  ):
+#         self.outputfilename = os.path.join(outputdir.outdir, outputfilename)
+#         self.id_family = id_family
 
-# Step 2.b: Set the initial data parameters
-# outputfilename  = os.path.join(,"SFID.txt")
-ID_Family       = "Gaussian_pulse"
-pulse_amplitude = 0.4
-pulse_center    = 0
-pulse_width     = 1
-Nr              = 30000
-# rmax            = domain_size*1.1
+# # Step 2.b: Set the initial data parameters
+# # outputfilename  = os.path.join(,"SFID.txt")
+# ID_Family       = "Gaussian_pulse"
+# pulse_amplitude = 0.4
+# pulse_center    = 0
+# pulse_width     = 1
+# Nr              = 30000
+# # rmax            = domain_size*1.1
 
-# Step 2.c: Generate the initial data
-# sfid.ScalarField_InitialData(outputfilename,ID_Family,
-#                              pulse_amplitude,pulse_center,pulse_width,Nr,rmax)
+# # Step 2.c: Generate the initial data
+# # sfid.ScalarField_InitialData(outputfilename,ID_Family,
+# #                              pulse_amplitude,pulse_center,pulse_width,Nr,rmax)
 
-# Step 2.d: Generate the needed C code
-# sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=Ccodesdir)
-
+# # Step 2.d: Generate the needed C code
+# # sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=Ccodesdir)
 
 
 def build_scalar_field_collapse():
