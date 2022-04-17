@@ -15,8 +15,6 @@ from dataclasses import dataclass, InitVar
 
 CCODESDIR = os.path.join("ccodesdir_default")
 
-import pdb
-
 @dataclass
 class CodesDir:
     root: os.PathLike = CCODESDIR
@@ -123,7 +121,6 @@ class SimdIntrinsics:
         cmd.mkdir(self.destination)
 
     def build(self):
-        pdb.set_trace()
         self.build_destination()
         shutil.copy(self.source, self.destination)
 
