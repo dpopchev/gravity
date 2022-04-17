@@ -119,10 +119,48 @@ class RungeKuttaTimesteppingCode:
                                   outdir = self.dirpath
                                   )
 
+    def build_find_timestep_header(self):
+        target = os.path.join(self.ccodesdir.root, 'find_timestep.h')
+        rfm.out_timestep_func_to_file(target)
+
     def build(self):
         self.build_rk_order()
         self.build_dirpath()
         self.build_mol_c_code()
+        self.build_find_timestep_header()
+
+@dataclass
+class ScalarFieldInitialData:
+    ccodesdir: CcodesDir = None
+    coord_system: CoordSystem = None
+    outputname: InitVar[str] = 'SFID.txt'
+    outputfilename: str = None
+    id_family: str = "Gaussian_pulse"
+    pulse_amplitude: float = 0.4
+    pulse_center: float = 0
+    pulse_width: float = 1
+    nr: int = 30000
+    rmax_weight: float = 1.1
+    rmax: float = None
+
+    def __post_init__(self, outputname):
+        if self.outputfilename is None:
+            self.outputfilename = os.path.join(self.ccodesdir.output, outputname)
+
+    def build_rmax(self):
+        self.rmax = self.coord_system.domain_size*self.rmax_weight
+
+    def build(self):
+        self.build_rmax()
+        sfid.ScalarField_InitialData(self.outputfilename,
+                                     self.id_family,
+                                     self.pulse_amplitude,
+                                     self.pulse_center,
+                                     self.pulse_width,
+                                     self.nr,
+                                     self.rmax)
+
+        sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=self.ccodesdir.root)
 
 @dataclass
 class Simd:
@@ -144,9 +182,11 @@ def build_scalar_field_collapse():
     moltimestepping = RungeKuttaTimesteppingCode(derivatives=derivatives,
                                                  ccodesdir=ccodesdir)
     simd = Simd(ccodesdir=ccodesdir)
+    sfinitdata = ScalarFieldInitialData(ccodesdir=ccodesdir, coord_system=coord_system)
 
     ccodesdir.build()
     spatial_dimension.build()
     moltimestepping.build()
     coord_system.build()
     simd.build()
+    sfinitdata.build()
