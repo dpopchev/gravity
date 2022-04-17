@@ -10,6 +10,7 @@ import shutil, os, sys           # Standard Python modules for multiplatform OS-
 import MoLtimestepping.C_Code_Generation as MoL
 from MoLtimestepping.RK_Butcher_Table_Dictionary import Butcher_dict
 import ScalarField.ScalarField_InitialData as sfid
+import BSSN.ADM_Numerical_Spherical_or_Cartesian_to_BSSNCurvilinear as AtoBnum
 
 from dataclasses import dataclass, InitVar
 
@@ -174,6 +175,20 @@ class Simd:
         cmd.mkdir(self.target)
         shutil.copy(os.path.join(self.filepath, self.filename), self.target)
 
+@dataclass
+class InitialDataConverter:
+    """Convert ADM initial data into BSSN-in-curvilinear coordinates"""
+    coord_system: CoordSystem = None
+    ccodesdir: CcodesDir = None
+    adm_input_function_name: str = 'ID_scalarfield_ADM_quantities'
+    loopopts: str = ''
+
+    def build(self):
+        AtoBnum.Convert_Spherical_or_Cartesian_ADM_to_BSSN_curvilinear(self.coord_system.name,
+                                                                       self.adm_input_function_name,
+                                                                       Ccodesdir=self.ccodesdir.root,
+                                                                       loopopts=self.loopopts)
+
 def build_scalar_field_collapse():
     ccodesdir = CcodesDir()
     spatial_dimension = SpatialDimension()
@@ -183,10 +198,15 @@ def build_scalar_field_collapse():
                                                  ccodesdir=ccodesdir)
     simd = Simd(ccodesdir=ccodesdir)
     sfinitdata = ScalarFieldInitialData(ccodesdir=ccodesdir, coord_system=coord_system)
+    adm_bssn_initial_data_converter = InitialDataConverter(coord_system=coord_system, ccodesdir=ccodesdir)
 
-    ccodesdir.build()
-    spatial_dimension.build()
-    moltimestepping.build()
-    coord_system.build()
-    simd.build()
-    sfinitdata.build()
+    steps = ( ccodesdir, )
+    steps += (spatial_dimension, )
+    steps += (moltimestepping, )
+    steps += (coord_system, )
+    steps += (simd, )
+    steps += (sfinitdata, )
+    steps += (adm_bssn_initial_data_converter, )
+
+    for step in steps:
+        step.build()
