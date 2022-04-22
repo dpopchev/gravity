@@ -356,6 +356,27 @@ class BssnRhsBuilder:
         end = time.time()
         print("(BENCH) Finished BSSN_RHS C codegen in " + str(end - start) + "seconds.")
 
+    def build_ricci_c_code(self):
+        print("Generating C code for Ricci tensor in "+par.parval_from_str("reference_metric::CoordSystem")+" coordinates.")
+        start = time.time()
+        desc="Evaluate the Ricci tensor"
+        name="Ricci_eval"
+        outCfunction(
+            outfile  = os.path.join(self.ccodesdir.root,name+".h"), desc=desc, name=name,
+            params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
+                          const REAL *restrict in_gfs,REAL *restrict auxevol_gfs""",
+            body     = fin.FD_outputC("returnstring",
+                                      [lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD00"),rhs=Bq.RbarDD[0][0]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD01"),rhs=Bq.RbarDD[0][1]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD02"),rhs=Bq.RbarDD[0][2]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD11"),rhs=Bq.RbarDD[1][1]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD12"),rhs=Bq.RbarDD[1][2]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD22"),rhs=Bq.RbarDD[2][2])],
+                                       params="outCverbose=False,enable_SIMD=True"),
+            loopopts = "InteriorPoints,enable_SIMD,enable_rfm_precompute")
+        end = time.time()
+        print("(BENCH) Finished Ricci C codegen in " + str(end - start) + " seconds.")
+
     def build(self):
         print("Generating symbolic expressions for BSSN RHSs...")
         start = time.time()
@@ -374,6 +395,7 @@ class BssnRhsBuilder:
         end = time.time()
         print("(BENCH) Finished BSSN symbolic expressions in "+str(end-start)+" seconds.")
         self.build_bssn_plus_scalarfield_rhss_c_code()
+        self.build_ricci_c_code()
 
 def build_scalar_field_collapse():
     ccodesdir = CcodesDir()
