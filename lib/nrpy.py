@@ -11,7 +11,17 @@ import MoLtimestepping.C_Code_Generation as MoL
 from MoLtimestepping.RK_Butcher_Table_Dictionary import Butcher_dict
 import ScalarField.ScalarField_InitialData as sfid
 import BSSN.ADM_Numerical_Spherical_or_Cartesian_to_BSSNCurvilinear as AtoBnum
+import BSSN.BSSN_RHSs as rhs
+import BSSN.BSSN_gauge_RHSs as gaugerhs
+import BSSN.BSSN_quantities as Bq
+import ScalarField.ScalarField_RHSs as sfrhs
+import ScalarField.ScalarField_Tmunu as sfTmunu
+import BSSN.BSSN_stress_energy_source_terms as Bsest
+import BSSN.BSSN_constraints as bssncon
+import BSSN.Enforce_Detgammahat_Constraint as EGC
 
+import time
+from itertools import product
 from dataclasses import dataclass, InitVar
 
 import pdb
@@ -189,6 +199,137 @@ class InitialDataConverter:
                                                                        Ccodesdir=self.ccodesdir.root,
                                                                        loopopts=self.loopopts)
 
+@dataclass
+class BssnRhsBuilder:
+    derivatives: Derivatives = None
+    ccodesdir: CcodesDir = None
+    spatial_dimension: SpatialDimension = None
+    rfm_files_dirname: InitVar[str] = 'rfm_files'
+    rfm_files_dir: str = None
+    is_rfm_precompute_enabled: str = 'True'
+    t4uu: str = None
+    beta_u: str = None
+    detg_constraint_symb_expressions: str = None
+    hamiltonian: str = None
+
+    def __post_init__(self, rfm_files_dirname):
+        if self.rfm_files_dir is None:
+            self.rfm_files_dir = os.path.join(self.ccodesdir.root,
+                                              rfm_files_dirname)
+
+    def build_bssn_gauge_rhs(self):
+        par.set_parval_from_str("BSSN.BSSN_gauge_RHSs::LapseEvolutionOption", self.derivatives.lapse_condition)
+        par.set_parval_from_str("BSSN.BSSN_gauge_RHSs::ShiftEvolutionOption", self.derivatives.shift_condition)
+
+    def build_reference_metric(self):
+        cmd.mkdir(self.rfm_files_dir)
+        par.set_parval_from_str(
+            "reference_metric::enable_rfm_precompute",
+            self.is_rfm_precompute_enabled
+        )
+        par.set_parval_from_str(
+            "reference_metric::rfm_precompute_Ccode_outdir",
+            self.rfm_files_dir)
+
+    def evaluate_rhs_with_rfm_precomptue(self):
+        if self.is_rfm_precompute_enabled != 'True':
+            raise AttributeError('not tested scenario, fix and work in different branch')
+
+        par.set_parval_from_str("BSSN.BSSN_quantities::LeaveRicciSymbolic", "True")
+
+        rhs.BSSN_RHSs()
+
+    def evaluate_scalar_field_rhs(self):
+        sfrhs.ScalarField_RHSs()
+
+    def compute_scalar_field_energy_momentum_tensor(self):
+        if self.t4uu is not None:
+            raise AttributeError('Scalar Field Tuu should be computed here')
+
+        sfTmunu.ScalarField_Tmunu()
+        self.t4uu = sfTmunu.T4UU
+
+    def compute_bssn_stress_energy_source_terms(self):
+        Bsest.BSSN_source_terms_for_BSSN_RHSs(self.t4uu)
+        rhs.trK_rhs += Bsest.sourceterm_trK_rhs
+        for i in range(self.spatial_dimension.dim):
+            # Needed for Gamma-driving shift RHSs:
+            rhs.Lambdabar_rhsU[i] += Bsest.sourceterm_Lambdabar_rhsU[i]
+            # Needed for BSSN RHSs:
+            rhs.lambda_rhsU[i]    += Bsest.sourceterm_lambda_rhsU[i]
+            for j in range(self.spatial_dimension.dim):
+                rhs.a_rhsDD[i][j] += Bsest.sourceterm_a_rhsDD[i][j]
+
+        gaugerhs.BSSN_gauge_RHSs()
+        Bq.BSSN_basic_tensors()
+        self.beta_u = Bq.betaU
+
+    def enforce_detgammahat_constraint(self):
+        self.detg_constraint_symb_expressions = EGC.Enforce_Detgammahat_Constraint_symb_expressions()
+
+    def compute_ricci_tensor(self):
+        par.set_parval_from_str("BSSN.BSSN_quantities::LeaveRicciSymbolic","False")
+        Bq.RicciBar__gammabarDD_dHatD__DGammaUDD__DGammaU()
+
+    def build_hamiltonian_gridfunction(self):
+        self.hamiltonian = gri.register_gridfunctions("AUX","H")
+
+    def build_hamiltonian_constraint(self):
+        bssncon.BSSN_constraints(add_T4UUmunu_source_terms=False)
+        Bsest.BSSN_source_terms_for_BSSN_constraints(self.t4uu)
+        bssncon.H += Bsest.sourceterm_H
+
+    def build_kreiss_olider_dissipation(self):
+        diss_strength = par.Cparameters("REAL","ScalarFieldCollapse",["diss_strength"],0.1)
+
+        alpha_dKOD   = ixp.declarerank1("alpha_dKOD")
+        cf_dKOD      = ixp.declarerank1("cf_dKOD")
+        trK_dKOD     = ixp.declarerank1("trK_dKOD")
+        sf_dKOD      = ixp.declarerank1("sf_dKOD")
+        sfM_dKOD     = ixp.declarerank1("sfM_dKOD")
+        betU_dKOD    = ixp.declarerank2("betU_dKOD","nosym")
+        vetU_dKOD    = ixp.declarerank2("vetU_dKOD","nosym")
+        lambdaU_dKOD = ixp.declarerank2("lambdaU_dKOD","nosym")
+        aDD_dKOD     = ixp.declarerank3("aDD_dKOD","sym01")
+        hDD_dKOD     = ixp.declarerank3("hDD_dKOD","sym01")
+        indexes = range(3)
+        for k, i, j in product(indexes, indexes, indexes):
+            gaugerhs.alpha_rhs += diss_strength*alpha_dKOD[k]*rfm.ReU[k]
+            rhs.cf_rhs         += diss_strength*   cf_dKOD[k]*rfm.ReU[k]
+            rhs.trK_rhs        += diss_strength*  trK_dKOD[k]*rfm.ReU[k]
+            sfrhs.sf_rhs       += diss_strength*   sf_dKOD[k]*rfm.ReU[k]
+            sfrhs.sfM_rhs      += diss_strength*  sfM_dKOD[k]*rfm.ReU[k]
+
+            if "2ndOrder" in self.derivatives.shift_condition:
+                gaugerhs.bet_rhsU[i] += diss_strength*   betU_dKOD[i][k]*rfm.ReU[k]
+
+            gaugerhs.vet_rhsU[i]     += diss_strength*   vetU_dKOD[i][k]*rfm.ReU[k]
+            rhs.lambda_rhsU[i]       += diss_strength*lambdaU_dKOD[i][k]*rfm.ReU[k]
+
+            rhs.a_rhsDD[i][j] += diss_strength*aDD_dKOD[i][j][k]*rfm.ReU[k]
+            rhs.h_rhsDD[i][j] += diss_strength*hDD_dKOD[i][j][k]*rfm.ReU[k]
+
+    def build_rfm_closed_form_expressions(self):
+        par.set_parval_from_str("reference_metric::enable_rfm_precompute","False")
+        rfm.ref_metric__hatted_quantities()
+
+    def build(self):
+        print("Generating symbolic expressions for BSSN RHSs...")
+        start = time.time()
+        self.build_bssn_gauge_rhs()
+        self.build_reference_metric()
+        self.evaluate_rhs_with_rfm_precomptue()
+        self.evaluate_scalar_field_rhs()
+        self.compute_scalar_field_energy_momentum_tensor()
+        self.compute_bssn_stress_energy_source_terms()
+        self.enforce_detgammahat_constraint()
+        self.compute_ricci_tensor()
+        self.build_hamiltonian_gridfunction()
+        self.build_hamiltonian_constraint()
+        self.build_kreiss_olider_dissipation()
+        self.build_rfm_closed_form_expressions()
+        print("(BENCH) Finished BSSN symbolic expressions in "+str(end-start)+" seconds.")
+
 def build_scalar_field_collapse():
     ccodesdir = CcodesDir()
     spatial_dimension = SpatialDimension()
@@ -199,6 +340,10 @@ def build_scalar_field_collapse():
     simd = Simd(ccodesdir=ccodesdir)
     sfinitdata = ScalarFieldInitialData(ccodesdir=ccodesdir, coord_system=coord_system)
     adm_bssn_initial_data_converter = InitialDataConverter(coord_system=coord_system, ccodesdir=ccodesdir)
+    bssn_rhs = BssnRhsBuilder(derivatives=derivatives,
+                              ccodesdir = ccodesdir,
+                              spatial_dimension = spatial_dimension,
+                              )
 
     steps = ( ccodesdir, )
     steps += (spatial_dimension, )
@@ -207,6 +352,7 @@ def build_scalar_field_collapse():
     steps += (simd, )
     steps += (sfinitdata, )
     steps += (adm_bssn_initial_data_converter, )
+    steps += (bssn_rhs,)
 
     for step in steps:
         step.build()
