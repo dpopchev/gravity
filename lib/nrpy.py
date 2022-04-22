@@ -204,6 +204,7 @@ class BssnRhsBuilder:
     derivatives: Derivatives = None
     ccodesdir: CcodesDir = None
     spatial_dimension: SpatialDimension = None
+    coord_system: CoordSystem = None
     rfm_files_dirname: InitVar[str] = 'rfm_files'
     rfm_files_dir: str = None
     is_rfm_precompute_enabled: str = 'True'
@@ -399,9 +400,38 @@ class BssnRhsBuilder:
         print("Generating optimized C code for gamma constraint. May take a while, depending on CoordSystem.")
 
         # Set up the C function for the det(gammahat) = det(gammabar)
-        EGC.output_Enforce_Detgammahat_Constraint_Ccode(Ccodesdir,exprs=enforce_detg_constraint_symb_expressions)
+        EGC.output_Enforce_Detgammahat_Constraint_Ccode(self.ccodesdir.root,
+                                                        exprs=self.detg_constraint_symb_expressions)
         end = time.time()
         print("(BENCH) Finished gamma constraint C codegen in " + str(end - start) + " seconds.")
+
+    def build_c_code_declaring_and_setting_cparameters(self):
+        # Step 4.e.i: Generate declare_Cparameters_struct.h, set_Cparameters_default.h, and set_Cparameters[-SIMD].h
+        par.generate_Cparameters_Ccodes(os.path.join(self.ccodesdir.root))
+
+        # Step 4.e.ii: Set free_parameters.h
+        # Output to $Ccodesdir/free_parameters.h reference metric parameters based on generic
+        #    domain_size,sinh_width,sinhv2_const_dr,SymTP_bScale,
+        #    parameters set above.
+        rfm.out_default_free_parameters_for_rfm(os.path.join(self.ccodesdir.root,"free_parameters.h"),
+                                                self.coord_system.domain_size,
+                                                self.coord_system.sinh_width,
+                                                self.coord_system.sinhv2_const_dr,
+                                                self.coord_system.symtp_bscale
+                                                )
+
+        # Step 4.e.iii: Generate set_Nxx_dxx_invdx_params__and__xx.h:
+        rfm.set_Nxx_dxx_invdx_params__and__xx_h(self.ccodesdir.root)
+
+        # Step 4.e.iv: Generate xx_to_Cart.h, which contains xx_to_Cart() for
+        #               (the mapping from xx->Cartesian) for the chosen
+        #               CoordSystem:
+        rfm.xx_to_Cart_h("xx_to_Cart",
+                         "./set_Cparameters.h",
+                         os.path.join(self.ccodesdir.root,"xx_to_Cart.h"))
+
+        # Step 4.e.v: Generate declare_Cparameters_struct.h, set_Cparameters_default.h, and set_Cparameters[-SIMD].h
+        par.generate_Cparameters_Ccodes(os.path.join(self.ccodesdir.root))
 
     def build(self):
         print("Generating symbolic expressions for BSSN RHSs...")
@@ -424,6 +454,7 @@ class BssnRhsBuilder:
         self.build_ricci_c_code()
         self.build_hamiltonian_c_code()
         self.build_gammadet_c_code()
+        self.build_c_code_declaring_and_setting_cparameters()
 
 def build_scalar_field_collapse():
     ccodesdir = CcodesDir()
@@ -438,6 +469,7 @@ def build_scalar_field_collapse():
     bssn_rhs = BssnRhsBuilder(derivatives=derivatives,
                               ccodesdir = ccodesdir,
                               spatial_dimension = spatial_dimension,
+                              coord_system = coord_system
                               )
 
     steps = ( ccodesdir, )
