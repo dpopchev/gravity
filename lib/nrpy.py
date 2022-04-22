@@ -377,6 +377,32 @@ class BssnRhsBuilder:
         end = time.time()
         print("(BENCH) Finished Ricci C codegen in " + str(end - start) + " seconds.")
 
+    def build_hamiltonian_c_code(self):
+        start = time.time()
+        print("Generating optimized C code for Hamiltonian constraint. May take a while, depending on CoordSystem.")
+        # Set up the C function for the Hamiltonian RHS
+        desc="Evaluate the Hamiltonian constraint"
+        name="Hamiltonian_constraint"
+        outCfunction(
+            outfile  = os.path.join(self.ccodesdir.root,name+".h"), desc=desc, name=name,
+            params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
+                          REAL *restrict in_gfs, REAL *restrict auxevol_gfs, REAL *restrict aux_gfs""",
+            body     = fin.FD_outputC("returnstring",lhrh(lhs=gri.gfaccess("aux_gfs", "H"), rhs=bssncon.H),
+                                      params="outCverbose=False"),
+            loopopts = "InteriorPoints,enable_rfm_precompute")
+
+        end = time.time()
+        print("(BENCH) Finished Hamiltonian C codegen in " + str(end - start) + " seconds.")
+
+    def build_gammadet_c_code(self):
+        start = time.time()
+        print("Generating optimized C code for gamma constraint. May take a while, depending on CoordSystem.")
+
+        # Set up the C function for the det(gammahat) = det(gammabar)
+        EGC.output_Enforce_Detgammahat_Constraint_Ccode(Ccodesdir,exprs=enforce_detg_constraint_symb_expressions)
+        end = time.time()
+        print("(BENCH) Finished gamma constraint C codegen in " + str(end - start) + " seconds.")
+
     def build(self):
         print("Generating symbolic expressions for BSSN RHSs...")
         start = time.time()
@@ -396,6 +422,8 @@ class BssnRhsBuilder:
         print("(BENCH) Finished BSSN symbolic expressions in "+str(end-start)+" seconds.")
         self.build_bssn_plus_scalarfield_rhss_c_code()
         self.build_ricci_c_code()
+        self.build_hamiltonian_c_code()
+        self.build_gammadet_c_code()
 
 def build_scalar_field_collapse():
     ccodesdir = CcodesDir()
