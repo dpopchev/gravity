@@ -313,6 +313,49 @@ class BssnRhsBuilder:
         par.set_parval_from_str("reference_metric::enable_rfm_precompute","False")
         rfm.ref_metric__hatted_quantities()
 
+    def build_bssn_plus_scalarfield_rhss_c_code(self):
+        print("Generating C code for BSSN RHSs in "+par.parval_from_str("reference_metric::CoordSystem")+" coordinates.")
+        start = time.time()
+
+        # Construct the left-hand sides and right-hand-side expressions for all BSSN RHSs
+        lhs_names = [        "alpha",       "cf",       "trK",         "sf",         "sfM"   ]
+        rhs_exprs = [gaugerhs.alpha_rhs, rhs.cf_rhs, rhs.trK_rhs, sfrhs.sf_rhs, sfrhs.sfM_rhs]
+        for i in range(3):
+            lhs_names.append(        "betU"+str(i))
+            rhs_exprs.append(gaugerhs.bet_rhsU[i])
+            lhs_names.append(   "lambdaU"+str(i))
+            rhs_exprs.append(rhs.lambda_rhsU[i])
+            lhs_names.append(        "vetU"+str(i))
+            rhs_exprs.append(gaugerhs.vet_rhsU[i])
+            for j in range(i,3):
+                lhs_names.append(   "aDD"+str(i)+str(j))
+                rhs_exprs.append(rhs.a_rhsDD[i][j])
+                lhs_names.append(   "hDD"+str(i)+str(j))
+                rhs_exprs.append(rhs.h_rhsDD[i][j])
+
+        # Sort the lhss list alphabetically, and rhss to match.
+        #   This ensures the RHSs are evaluated in the same order
+        #   they're allocated in memory:
+        lhs_names,rhs_exprs = [list(x) for x in zip(*sorted(zip(lhs_names,rhs_exprs), key=lambda pair: pair[0]))]
+
+        # Declare the list of lhrh's
+        BSSN_evol_rhss = []
+        for var in range(len(lhs_names)):
+            BSSN_evol_rhss.append(lhrh(lhs=gri.gfaccess("rhs_gfs",lhs_names[var]),rhs=rhs_exprs[var]))
+
+        # Set up the C function for the BSSN RHSs
+        desc="Evaluate the BSSN RHSs"
+        name="rhs_eval"
+        outCfunction(
+            outfile  = os.path.join(self.ccodesdir.root,name+".h"), desc=desc, name=name,
+            params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
+                          const REAL *restrict auxevol_gfs,const REAL *restrict in_gfs,REAL *restrict rhs_gfs""",
+            body     = fin.FD_outputC("returnstring",BSSN_evol_rhss, params="outCverbose=False,enable_SIMD=True",
+                                      upwindcontrolvec=self.beta_u),
+            loopopts = "InteriorPoints,enable_SIMD,enable_rfm_precompute")
+        end = time.time()
+        print("(BENCH) Finished BSSN_RHS C codegen in " + str(end - start) + "seconds.")
+
     def build(self):
         print("Generating symbolic expressions for BSSN RHSs...")
         start = time.time()
@@ -328,7 +371,9 @@ class BssnRhsBuilder:
         self.build_hamiltonian_constraint()
         self.build_kreiss_olider_dissipation()
         self.build_rfm_closed_form_expressions()
+        end = time.time()
         print("(BENCH) Finished BSSN symbolic expressions in "+str(end-start)+" seconds.")
+        self.build_bssn_plus_scalarfield_rhss_c_code()
 
 def build_scalar_field_collapse():
     ccodesdir = CcodesDir()
