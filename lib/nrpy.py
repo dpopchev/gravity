@@ -20,6 +20,15 @@ import BSSN.BSSN_stress_energy_source_terms as Bsest
 import BSSN.BSSN_constraints as bssncon
 import BSSN.Enforce_Detgammahat_Constraint as EGC
 import CurviBoundaryConditions.CurviBoundaryConditions as cbcs
+import numpy as np
+from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import savefig
+import matplotlib.image as mgimg
+
+import glob
+import sys
+from matplotlib import animation
 
 import time
 from itertools import product
@@ -523,6 +532,115 @@ REAL CFL_FACTOR = """+str(self.derivatives.cfl_factor)+"""; // Set the CFL Facto
         self.build_cfiles()
         self.run()
 
+@dataclass
+class Visualizator:
+    ccodesdir: CcodesDir = None
+    derivatives: Derivatives = None
+    outnames: str = 'out640-00*.txt'
+    file_list: list = None
+
+    def build_frames(self):
+        globby = glob.glob(os.path.join(self.ccodesdir.output,'out640-00*.txt'))
+        self.file_list = []
+        for x in sorted(globby):
+            self.file_list.append(x)
+
+        for filename in self.file_list:
+            fig = plt.figure(figsize=(8,6))
+            x,r,sf,sfM,alpha,cf,logH = np.loadtxt(filename).T #Transposed for easier unpacking
+
+            ax  = fig.add_subplot(321)
+            ax2 = fig.add_subplot(322)
+            ax3 = fig.add_subplot(323)
+            ax4 = fig.add_subplot(324)
+            ax5 = fig.add_subplot(325)
+
+            ax.set_title("Scalar field")
+            ax.set_ylabel(r"$\varphi(t,r)$")
+            ax.set_xlim(0,20)
+            ax.set_ylim(-0.6,0.6)
+            ax.plot(r,sf,'k-')
+            ax.grid()
+
+            ax2.set_title("Scalar field conjugate momentum")
+            ax2.set_ylabel(r"$\Pi(t,r)$")
+            ax2.set_xlim(0,20)
+            ax2.set_ylim(-1,1)
+            ax2.plot(r,sfM,'b-')
+            ax2.grid()
+
+            ax3.set_title("Lapse function")
+            ax3.set_ylabel(r"$\alpha(t,r)$")
+            ax3.set_xlim(0,20)
+            ax3.set_ylim(0,1.02)
+            ax3.plot(r,alpha,'r-')
+            ax3.grid()
+
+            ax4.set_title("Conformal factor")
+            ax4.set_xlabel(r"$r$")
+            ax4.set_ylabel(r"$W(t,r)$")
+            ax4.set_xlim(0,20)
+            ax4.set_ylim(0,1.02)
+            ax4.plot(r,cf,'g-',label=("$p = 0.043149493$"))
+            ax4.grid()
+
+            ax5.set_title("Hamiltonian constraint violation")
+            ax5.set_xlabel(r"$r$")
+            ax5.set_ylabel(r"$\mathcal{H}(t,r)$")
+            ax5.set_xlim(0,20)
+            ax5.set_ylim(-16,0)
+            ax5.plot(r,logH,'m-')
+            ax5.grid()
+
+            plt.tight_layout()
+            savefig(filename+".png",dpi=150)
+            plt.close(fig)
+            sys.stdout.write("%c[2K" % 27)
+            sys.stdout.write("Processing file "+filename+"\r")
+            sys.stdout.flush()
+
+    def build_animation(self):
+        fig = plt.figure(frameon=False)
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.axis('off')
+
+        myimages = []
+
+        for i in range(len(self.file_list)):
+            img = mgimg.imread(file_list[i]+".png")
+            imgplot = plt.imshow(img)
+            myimages.append([imgplot])
+
+        ani = animation.ArtistAnimation(fig, myimages, interval=100,  repeat_delay=1000)
+        plt.close()
+        ani.save(os.path.join(self.ccodesdir.output,'ScalarField_Collapse.mp4'), fps=5, dpi=150)
+
+    def build_convergence(self):
+        os.chdir(self.ccodesdir.output)
+        cmd.delete_existing_files("out320*.txt")
+        cmd.Execute("ScalarFieldCollapse_Playground", "320 2 2 "+str(self.derivatives.cfl_factor),"out320.txt")
+        os.chdir(os.path.join("..",".."))
+        outfig = os.path.join(self.ccodesdir.output,"ScalarFieldCollapse_H_convergence.png")
+        fig = plt.figure()
+        r_640,H_640 = np.loadtxt(os.path.join(self.ccodesdir.output,"out640.txt")).T
+        r_320,H_320 = np.loadtxt(os.path.join(self.ccodesdir.output,"out320.txt")).T
+        plt.title("Plot demonstrating 4th order\nconvergence of constraint violations")
+        plt.xlabel(r"$r$")
+        plt.ylabel(r"$\log_{10}|\mathcal{H}|$")
+        plt.xlim(0,16)
+        plt.plot(r_640,H_640,label=r"$N_{r} = 640$")
+        plt.plot(r_320,H_320+4*np.log10(320.0/640.0),label=r"$N_{r} = 320$, mult by $(320/640)^{4}$")
+        plt.legend()
+
+        plt.tight_layout()
+        plt.savefig(outfig,dpi=150)
+        plt.close(fig)
+
+    def build(self):
+        self.build_frames()
+        self.build_animation()
+        self.build_convergence()
+
 def build_scalar_field_collapse():
     ccodesdir = CcodesDir()
     spatial_dimension = SpatialDimension()
@@ -540,6 +658,7 @@ def build_scalar_field_collapse():
                               )
     boundary_conditions_functions = BoundaryConditionFunctions(ccodesdir=ccodesdir)
     mainccode = MainCcode(ccodesdir=ccodesdir, derivatives=derivatives)
+    visualizator = Visualizator(ccodesdir=ccodesdir, derivatives=derivatives)
 
     steps = ( ccodesdir, )
     steps += (spatial_dimension, )
@@ -551,6 +670,7 @@ def build_scalar_field_collapse():
     steps += (bssn_rhs,)
     steps += (boundary_conditions_functions,)
     steps += (mainccode,)
+    steps += (visualizator, )
 
     for step in steps:
         step.build()
