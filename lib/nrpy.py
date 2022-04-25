@@ -194,6 +194,7 @@ class BssnSpaceTime:
     betau: Any = None
     enforce_detg_constraint_symb_expressions: Any = None
     hamiltonian: Any = None
+    coord_system: CoordSystem = None
 
     def build_bssn_gauge_rhs(self):
         par.set_parval_from_str("BSSN.BSSN_gauge_RHSs::LapseEvolutionOption", self.numerical.lapse)
@@ -277,6 +278,122 @@ class BssnSpaceTime:
         par.set_parval_from_str("reference_metric::enable_rfm_precompute","False") # Reset to False to disable rfm_precompute.
         rfm.ref_metric__hatted_quantities()
 
+    def build_c_code_bssn_plus_scalarfield_rhs(self):
+        print("Generating C code for BSSN RHSs in "
+              + par.parval_from_str("reference_metric::CoordSystem")
+              +" coordinates.")
+
+        start = time.time()
+
+        # Construct the left-hand sides and right-hand-side expressions for all BSSN RHSs
+        lhs_names = [        "alpha",       "cf",       "trK",         "sf",         "sfM"   ]
+        rhs_exprs = [gaugerhs.alpha_rhs, rhs.cf_rhs, rhs.trK_rhs, sfrhs.sf_rhs, sfrhs.sfM_rhs]
+
+        for i in range(3):
+            lhs_names.append(        "betU"+str(i))
+            rhs_exprs.append(gaugerhs.bet_rhsU[i])
+            lhs_names.append(   "lambdaU"+str(i))
+            rhs_exprs.append(rhs.lambda_rhsU[i])
+            lhs_names.append(        "vetU"+str(i))
+            rhs_exprs.append(gaugerhs.vet_rhsU[i])
+            for j in range(i,3):
+                lhs_names.append(   "aDD"+str(i)+str(j))
+                rhs_exprs.append(rhs.a_rhsDD[i][j])
+                lhs_names.append(   "hDD"+str(i)+str(j))
+                rhs_exprs.append(rhs.h_rhsDD[i][j])
+
+        # Sort the lhss list alphabetically, and rhss to match.
+        #   This ensures the RHSs are evaluated in the same order
+        #   they're allocated in memory:
+        lhs_names,rhs_exprs = [list(x) for x in zip(*sorted(zip(lhs_names,rhs_exprs), key=lambda pair: pair[0]))]
+
+        # Declare the list of lhrh's
+        BSSN_evol_rhss = []
+        for var in range(len(lhs_names)):
+            BSSN_evol_rhss.append(lhrh(lhs=gri.gfaccess("rhs_gfs",lhs_names[var]),rhs=rhs_exprs[var]))
+
+        # Set up the C function for the BSSN RHSs
+        desc="Evaluate the BSSN RHSs"
+        name="rhs_eval"
+        out_c_target = os.path.join(self.ccodesdir.root, name + '.h')
+        outCfunction(
+            outfile  = out_c_target, desc=desc, name=name,
+            params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
+                          const REAL *restrict auxevol_gfs,const REAL *restrict in_gfs,REAL *restrict rhs_gfs""",
+            body     = fin.FD_outputC("returnstring",BSSN_evol_rhss, params="outCverbose=False,enable_SIMD=True",
+                                      upwindcontrolvec=self.betau),
+            loopopts = "InteriorPoints,enable_SIMD,enable_rfm_precompute")
+        end = time.time()
+        print("(BENCH) Finished BSSN_RHS C codegen in " + str(end - start) + " seconds.")
+
+    def build_c_code_ricci(self):
+        print("Generating C code for Ricci tensor in "
+              +par.parval_from_str("reference_metric::CoordSystem")
+              +" coordinates.")
+
+        start = time.time()
+        desc="Evaluate the Ricci tensor"
+        name="Ricci_eval"
+        out_c_target = os.path.join(self.ccodesdir.root, name + '.h')
+        outCfunction(
+            outfile  = out_c_target, desc=desc, name=name,
+            params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
+                          const REAL *restrict in_gfs,REAL *restrict auxevol_gfs""",
+            body     = fin.FD_outputC("returnstring",
+                                      [lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD00"),rhs=Bq.RbarDD[0][0]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD01"),rhs=Bq.RbarDD[0][1]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD02"),rhs=Bq.RbarDD[0][2]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD11"),rhs=Bq.RbarDD[1][1]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD12"),rhs=Bq.RbarDD[1][2]),
+                                       lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD22"),rhs=Bq.RbarDD[2][2])],
+                                       params="outCverbose=False,enable_SIMD=True"),
+            loopopts = "InteriorPoints,enable_SIMD,enable_rfm_precompute")
+        end = time.time()
+        print("(BENCH) Finished Ricci C codegen in " + str(end - start) + " seconds.")
+
+    def build_c_code_hamiltonian(self):
+        start = time.time()
+        print("Generating optimized C code for Hamiltonian constraint. May take a while, depending on CoordSystem.")
+        # Set up the C function for the Hamiltonian RHS
+        desc="Evaluate the Hamiltonian constraint"
+        name="Hamiltonian_constraint"
+        outCfunction(
+            outfile  = os.path.join(self.ccodesdir.root,name+".h"), desc=desc, name=name,
+            params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
+                          REAL *restrict in_gfs, REAL *restrict auxevol_gfs, REAL *restrict aux_gfs""",
+            body     = fin.FD_outputC("returnstring",lhrh(lhs=gri.gfaccess("aux_gfs", "H"), rhs=bssncon.H),
+                                      params="outCverbose=False"),
+            loopopts = "InteriorPoints,enable_rfm_precompute")
+
+        end = time.time()
+        print("(BENCH) Finished Hamiltonian C codegen in " + str(end - start) + " seconds.")
+
+    def build_c_code_gammadet(self):
+        start = time.time()
+        print("Generating optimized C code for gamma constraint. May take a while, depending on CoordSystem.")
+
+        # Set up the C function for the det(gammahat) = det(gammabar)
+        EGC.output_Enforce_Detgammahat_Constraint_Ccode(self.ccodesdir.root,exprs=self.enforce_detg_constraint_symb_expressions)
+        end = time.time()
+        print("(BENCH) Finished gamma constraint C codegen in " + str(end - start) + " seconds.")
+
+    def build_c_code_parameters(self):
+        # Step 4.e.i: Generate declare_Cparameters_struct.h, set_Cparameters_default.h, and set_Cparameters[-SIMD].h
+        par.generate_Cparameters_Ccodes(os.path.join(self.ccodesdir.root))
+
+        rfm.out_default_free_parameters_for_rfm(os.path.join(self.ccodesdir.root,"free_parameters.h"),
+                                                self.coord_system.domain_size,
+                                                self.coord_system.sinh_width,
+                                                self.coord_system.sinhv2_const_dr,
+                                                self.coord_system.symtp_bscale
+                                                )
+
+        rfm.set_Nxx_dxx_invdx_params__and__xx_h(self.ccodesdir.root)
+
+        rfm.xx_to_Cart_h("xx_to_Cart","./set_Cparameters.h",os.path.join(self.ccodesdir.root,"xx_to_Cart.h"))
+
+        par.generate_Cparameters_Ccodes(os.path.join(self.ccodesdir.root))
+
     def build(self):
         self.build_bssn_gauge_rhs()
 
@@ -298,142 +415,11 @@ class BssnSpaceTime:
         end = time.time()
         print("(BENCH) Finished BSSN symbolic expressions in "+str(end-start)+" seconds.")
 
-def BSSN_plus_ScalarField_RHSs():
-    print("Generating C code for BSSN RHSs in "+par.parval_from_str("reference_metric::CoordSystem")+" coordinates.")
-    start = time.time()
-
-    # Construct the left-hand sides and right-hand-side expressions for all BSSN RHSs
-    lhs_names = [        "alpha",       "cf",       "trK",         "sf",         "sfM"   ]
-    rhs_exprs = [gaugerhs.alpha_rhs, rhs.cf_rhs, rhs.trK_rhs, sfrhs.sf_rhs, sfrhs.sfM_rhs]
-    for i in range(3):
-        lhs_names.append(        "betU"+str(i))
-        rhs_exprs.append(gaugerhs.bet_rhsU[i])
-        lhs_names.append(   "lambdaU"+str(i))
-        rhs_exprs.append(rhs.lambda_rhsU[i])
-        lhs_names.append(        "vetU"+str(i))
-        rhs_exprs.append(gaugerhs.vet_rhsU[i])
-        for j in range(i,3):
-            lhs_names.append(   "aDD"+str(i)+str(j))
-            rhs_exprs.append(rhs.a_rhsDD[i][j])
-            lhs_names.append(   "hDD"+str(i)+str(j))
-            rhs_exprs.append(rhs.h_rhsDD[i][j])
-
-    # Sort the lhss list alphabetically, and rhss to match.
-    #   This ensures the RHSs are evaluated in the same order
-    #   they're allocated in memory:
-    lhs_names,rhs_exprs = [list(x) for x in zip(*sorted(zip(lhs_names,rhs_exprs), key=lambda pair: pair[0]))]
-
-    # Declare the list of lhrh's
-    BSSN_evol_rhss = []
-    for var in range(len(lhs_names)):
-        BSSN_evol_rhss.append(lhrh(lhs=gri.gfaccess("rhs_gfs",lhs_names[var]),rhs=rhs_exprs[var]))
-
-    # Set up the C function for the BSSN RHSs
-    desc="Evaluate the BSSN RHSs"
-    name="rhs_eval"
-    outCfunction(
-        outfile  = os.path.join(Ccodesdir,name+".h"), desc=desc, name=name,
-        params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
-                      const REAL *restrict auxevol_gfs,const REAL *restrict in_gfs,REAL *restrict rhs_gfs""",
-        body     = fin.FD_outputC("returnstring",BSSN_evol_rhss, params="outCverbose=False,enable_SIMD=True",
-                                  upwindcontrolvec=betaU),
-        loopopts = "InteriorPoints,enable_SIMD,enable_rfm_precompute")
-    end = time.time()
-    print("(BENCH) Finished BSSN_RHS C codegen in " + str(end - start) + " seconds.")
-
-def Ricci():
-    print("Generating C code for Ricci tensor in "+par.parval_from_str("reference_metric::CoordSystem")+" coordinates.")
-    start = time.time()
-    desc="Evaluate the Ricci tensor"
-    name="Ricci_eval"
-    outCfunction(
-        outfile  = os.path.join(Ccodesdir,name+".h"), desc=desc, name=name,
-        params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
-                      const REAL *restrict in_gfs,REAL *restrict auxevol_gfs""",
-        body     = fin.FD_outputC("returnstring",
-                                  [lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD00"),rhs=Bq.RbarDD[0][0]),
-                                   lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD01"),rhs=Bq.RbarDD[0][1]),
-                                   lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD02"),rhs=Bq.RbarDD[0][2]),
-                                   lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD11"),rhs=Bq.RbarDD[1][1]),
-                                   lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD12"),rhs=Bq.RbarDD[1][2]),
-                                   lhrh(lhs=gri.gfaccess("auxevol_gfs","RbarDD22"),rhs=Bq.RbarDD[2][2])],
-                                   params="outCverbose=False,enable_SIMD=True"),
-        loopopts = "InteriorPoints,enable_SIMD,enable_rfm_precompute")
-    end = time.time()
-    print("(BENCH) Finished Ricci C codegen in " + str(end - start) + " seconds.")
-
-def Hamiltonian():
-    start = time.time()
-    print("Generating optimized C code for Hamiltonian constraint. May take a while, depending on CoordSystem.")
-    # Set up the C function for the Hamiltonian RHS
-    desc="Evaluate the Hamiltonian constraint"
-    name="Hamiltonian_constraint"
-    outCfunction(
-        outfile  = os.path.join(Ccodesdir,name+".h"), desc=desc, name=name,
-        params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
-                      REAL *restrict in_gfs, REAL *restrict auxevol_gfs, REAL *restrict aux_gfs""",
-        body     = fin.FD_outputC("returnstring",lhrh(lhs=gri.gfaccess("aux_gfs", "H"), rhs=bssncon.H),
-                                  params="outCverbose=False"),
-        loopopts = "InteriorPoints,enable_rfm_precompute")
-
-    end = time.time()
-    print("(BENCH) Finished Hamiltonian C codegen in " + str(end - start) + " seconds.")
-
-def gammadet():
-    start = time.time()
-    print("Generating optimized C code for gamma constraint. May take a while, depending on CoordSystem.")
-
-    # Set up the C function for the det(gammahat) = det(gammabar)
-    EGC.output_Enforce_Detgammahat_Constraint_Ccode(Ccodesdir,exprs=enforce_detg_constraint_symb_expressions)
-    end = time.time()
-    print("(BENCH) Finished gamma constraint C codegen in " + str(end - start) + " seconds.")
-
-# Step 4.d: C code kernel generation
-# Step 4.d.i: Create a list of functions we wish to evaluate in parallel
-funcs = [BSSN_plus_ScalarField_RHSs,Ricci,Hamiltonian,gammadet]
-
-try:
-    if os.name == 'nt':
-        # It's a mess to get working in Windows, so we don't bother. :/
-        #  https://medium.com/@grvsinghal/speed-up-your-python-code-using-multiprocessing-on-windows-and-jupyter-or-ipython-2714b49d6fac
-        raise Exception("Parallel codegen currently not available in Windows")
-    # Step 4.d.ii: Import the multiprocessing module.
-    import multiprocess as multiprocessing
-
-    # Step 4.d.iii: Define master function for parallelization.
-    #           Note that lambdifying this doesn't work in Python 3
-    def master_func(arg):
-        funcs[arg]()
-
-    # Step 4.d.iv: Evaluate list of functions in parallel if possible;
-    #           otherwise fallback to serial evaluation:
-    pool = multiprocessing.Pool()
-    pool.map(master_func,range(len(funcs)))
-except:
-    # Steps 4.d.iii-4.d.v, alternate: As fallback, evaluate functions in serial.
-    for func in funcs:
-        func()
-
-# Step 4.e.i: Generate declare_Cparameters_struct.h, set_Cparameters_default.h, and set_Cparameters[-SIMD].h
-par.generate_Cparameters_Ccodes(os.path.join(Ccodesdir))
-
-# Step 4.e.ii: Set free_parameters.h
-# Output to $Ccodesdir/free_parameters.h reference metric parameters based on generic
-#    domain_size,sinh_width,sinhv2_const_dr,SymTP_bScale,
-#    parameters set above.
-rfm.out_default_free_parameters_for_rfm(os.path.join(Ccodesdir,"free_parameters.h"),
-                                        domain_size,sinh_width,sinhv2_const_dr,SymTP_bScale)
-
-# Step 4.e.iii: Generate set_Nxx_dxx_invdx_params__and__xx.h:
-rfm.set_Nxx_dxx_invdx_params__and__xx_h(Ccodesdir)
-
-# Step 4.e.iv: Generate xx_to_Cart.h, which contains xx_to_Cart() for
-#               (the mapping from xx->Cartesian) for the chosen
-#               CoordSystem:
-rfm.xx_to_Cart_h("xx_to_Cart","./set_Cparameters.h",os.path.join(Ccodesdir,"xx_to_Cart.h"))
-
-# Step 4.e.v: Generate declare_Cparameters_struct.h, set_Cparameters_default.h, and set_Cparameters[-SIMD].h
-par.generate_Cparameters_Ccodes(os.path.join(Ccodesdir))
+        self.build_c_code_bssn_plus_scalarfield_rhs()
+        self.build_c_code_ricci()
+        self.build_c_code_hamiltonian()
+        self.build_c_code_gammadet()
+        self.build_c_code_parameters()
 
 import CurviBoundaryConditions.CurviBoundaryConditions as cbcs
 cbcs.Set_up_CurviBoundaryConditions(os.path.join(Ccodesdir,"boundary_conditions/"),Cparamspath=os.path.join("../"),path_prefix='../nrpytutorial')
