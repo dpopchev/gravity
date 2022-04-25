@@ -52,6 +52,7 @@ class CoordSystem:
     sinh_width: float = 0.2 # If Sinh* coordinates chosen
     sinhv2_const_dr: float = 0.05# If Sinh*v2 coordinates chosen
     symtp_bscale: float    = 0.5 # If SymTP chosen
+    is_spherical_symmetry: bool = True
 
     def __post_init__(self, _name):
         if self.name is None:
@@ -61,7 +62,11 @@ class CoordSystem:
             raise AttributeError(f'{self.name} should be one of {self.choices}')
 
     def build(self):
-        pass
+        par.set_parval_from_str("reference_metric::CoordSystem",self.name)
+        rfm.reference_metric() # Create ReU, ReDD needed for rescaling B-L initial data, generating BSSN RHSs, etc.
+
+        if is_spherical_symmetry:
+            par.set_parval_from_str("indexedexp::symmetry_axes","12")
 
 @dataclass
 class NumericalIntegration:
@@ -108,28 +113,24 @@ class NumericalIntegration:
                                   post_RHS_string=self.post_rhs_string,
                                   outdir=dirtarget
                                   )
+    def build_timestep(self):
+        destination = os.path.join(self.ccodesdir.root, 'find_timestep.h')
+        rfm.out_timestep_func_to_file(destination)
 
     def build(self):
         self.rk_order = Butcher_dict[RK_method][1]
         self.build_moltimestepping()
+        par.set_parval_from_str("finite_difference::FD_CENTDERIVS_ORDER", self.fd_order)
 
-# Step 4: Set the coordinate system for the numerical grid
-par.set_parval_from_str("reference_metric::CoordSystem",CoordSystem)
-rfm.reference_metric() # Create ReU, ReDD needed for rescaling B-L initial data, generating BSSN RHSs, etc.
+@dataclass
+class Simd:
+    source: str = '../nrpytutorial/SIMD/SIMD_intrinsics.h'
+    ccodesdir: CcodesDir = None
 
-# Step 5: Set the finite differencing order to FD_order (set above).
-par.set_parval_from_str("finite_difference::FD_CENTDERIVS_ORDER", FD_order)
-
-# Step 6: Copy SIMD/SIMD_intrinsics.h to $Ccodesdir/SIMD/SIMD_intrinsics.h
-cmd.mkdir(os.path.join(Ccodesdir,"SIMD"))
-shutil.copy(os.path.join("../nrpytutorial/SIMD/")+"SIMD_intrinsics.h",os.path.join(Ccodesdir,"SIMD/"))
-
-# Step 7: Impose spherical symmetry by demanding that all
-#         derivatives in the angular directions vanish
-par.set_parval_from_str("indexedexp::symmetry_axes","12")
-
-# Output the find_timestep() function to a C file.
-rfm.out_timestep_func_to_file(os.path.join(Ccodesdir,"find_timestep.h"))
+    def build(self):
+        destination = os.path.join(ccodesdir.root, 'SIMD')
+        cmd.mkdir(destination)
+        shutil.copy(source,destination)
 
 # Step 2.a: Import necessary Python and NRPy+ modules
 import ScalarField.ScalarField_InitialData as sfid
