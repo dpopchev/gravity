@@ -21,6 +21,16 @@ import ScalarField.ScalarField_Tmunu as sfTmunu
 import BSSN.BSSN_stress_energy_source_terms as Bsest
 import BSSN.Enforce_Detgammahat_Constraint as EGC
 import BSSN.BSSN_constraints as bssncon
+import CurviBoundaryConditions.CurviBoundaryConditions as cbcs
+import numpy as np
+from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import savefig
+import matplotlib.image as mgimg
+
+import glob
+import sys
+from matplotlib import animation
 
 from dataclasses import dataclass, InitVar, field
 from typing import Any, List
@@ -421,159 +431,163 @@ class BssnSpaceTime:
         self.build_c_code_gammadet()
         self.build_c_code_parameters()
 
-import CurviBoundaryConditions.CurviBoundaryConditions as cbcs
-cbcs.Set_up_CurviBoundaryConditions(os.path.join(Ccodesdir,"boundary_conditions/"),Cparamspath=os.path.join("../"),path_prefix='../nrpytutorial')
+@dataclass
+class BoundaryCondition:
+    ccodesdir: CcodesDir = None
 
-# Part P0: Define REAL, set the number of ghost cells NGHOSTS (from NRPy+'s FD_CENTDERIVS_ORDER),
-#          and set the CFL_FACTOR (which can be overwritten at the command line)
+    def build(self):
+        cbcs.Set_up_CurviBoundaryConditions(os.path.join(self.ccodesdir.root,"boundary_conditions/"),Cparamspath=os.path.join("../"),path_prefix='../nrpytutorial')
 
-with open(os.path.join(Ccodesdir,"ScalarFieldCollapse_Playground_REAL__NGHOSTS__CFL_FACTOR.h"), "w") as file:
-    file.write("""
-// Part P0.a: Set the number of ghost cells, from NRPy+'s FD_CENTDERIVS_ORDER
-#define NGHOSTS """+str(int(FD_order/2)+1)+"""
-// Part P0.b: Set the numerical precision (REAL) to double, ensuring all floating point
-//            numbers are stored to at least ~16 significant digits
-#define REAL """+REAL+"""
-// Part P0.c: Set the number of ghost cells, from NRPy+'s FD_CENTDERIVS_ORDER
-REAL CFL_FACTOR = """+str(CFL_FACTOR)+"""; // Set the CFL Factor. Can be overwritten at command line.\n""")
 
-shutil.copy('templates/ScalarFieldCollapse_Playground.c', 'BSSN_ScalarFieldCollapse_Ccodes/ScalarFieldCollapse_Playground.c')
+@dataclass
+class MainCcode:
+    ccodesdir: CcodesDir = None
+    numerical: NumericalIntegration = None
 
-import os
-import time
-import cmdline_helper as cmd
+    def build_main(self):
 
-print("Now compiling, should take ~10 seconds...\n")
-start = time.time()
-cmd.C_compile(os.path.join(Ccodesdir,"ScalarFieldCollapse_Playground.c"),
-              os.path.join(outdir,"ScalarFieldCollapse_Playground"),compile_mode="optimized")
-end = time.time()
-print("(BENCH) Finished in "+str(end-start)+" seconds.\n")
+        with open(os.path.join(self.ccodesdir.root,"ScalarFieldCollapse_Playground_REAL__NGHOSTS__CFL_FACTOR.h"), "w") as file:
+            file.write("""
+        // Part P0.a: Set the number of ghost cells, from NRPy+'s FD_CENTDERIVS_ORDER
+        #define NGHOSTS """+str(int(self.numerical.fd_order/2)+1)+"""
+        // Part P0.b: Set the numerical precision (REAL) to double, ensuring all floating point
+        //            numbers are stored to at least ~16 significant digits
+        #define REAL """+self.numerical.real+"""
+        // Part P0.c: Set the number of ghost cells, from NRPy+'s FD_CENTDERIVS_ORDER
+        REAL CFL_FACTOR = """+str(self.numerical.cfl_factor)+"""; // Set the CFL Factor. Can be overwritten at command line.\n""")
 
-# Change to output directory
-os.chdir(outdir)
-# Clean up existing output files
-cmd.delete_existing_files("out*.txt")
-cmd.delete_existing_files("out*.png")
-# Run executable
+        shutil.copy('templates/ScalarFieldCollapse_Playground.c', 'BSSN_ScalarFieldCollapse_Ccodes/ScalarFieldCollapse_Playground.c')
 
-print(os.getcwd())
-print("Now running, should take ~20 seconds...\n")
-start = time.time()
-cmd.Execute("ScalarFieldCollapse_Playground", "640 2 2 "+str(CFL_FACTOR),"out640.txt")
-end = time.time()
-print("(BENCH) Finished in "+str(end-start)+" seconds.\n")
+    def compile(self):
+        print("Now compiling, should take ~10 seconds...\n")
+        start = time.time()
+        cmd.C_compile(os.path.join(self.ccodesdir.root,"ScalarFieldCollapse_Playground.c"),
+                      os.path.join(self.ccodesdir.outdir,"ScalarFieldCollapse_Playground"),compile_mode="optimized")
+        end = time.time()
+        print("(BENCH) Finished in "+str(end-start)+" seconds.\n")
 
-# Return to root directory
-os.chdir(os.path.join("../../"))
+        # Change to output directory
+        os.chdir(self.ccodesdir.outdir)
+        # Clean up existing output files
+        cmd.delete_existing_files("out*.txt")
+        cmd.delete_existing_files("out*.png")
+        # Run executable
 
-import numpy as np
-from scipy.interpolate import griddata
-import matplotlib.pyplot as plt
-from matplotlib.pyplot import savefig
+        print(os.getcwd())
+        print("Now running, should take ~20 seconds...\n")
+        start = time.time()
+        cmd.Execute("ScalarFieldCollapse_Playground", "640 2 2 "+str(self.numerical.cfl_factor),"out640.txt")
+        end = time.time()
+        print("(BENCH) Finished in "+str(end-start)+" seconds.\n")
 
-import glob
-import sys
-from matplotlib import animation
+        # Return to root directory
+        os.chdir(os.path.join("../../"))
 
-globby = glob.glob(os.path.join(outdir,'out640-00*.txt'))
-file_list = []
-for x in sorted(globby):
-    file_list.append(x)
+    def build_animation(self):
 
-for filename in file_list:
-    fig = plt.figure(figsize=(8,6))
-    x,r,sf,sfM,alpha,cf,logH = np.loadtxt(filename).T #Transposed for easier unpacking
+        globby = glob.glob(os.path.join(self.ccodesdir.outdir,'out640-00*.txt'))
+        file_list = []
+        for x in sorted(globby):
+            file_list.append(x)
 
-    ax  = fig.add_subplot(321)
-    ax2 = fig.add_subplot(322)
-    ax3 = fig.add_subplot(323)
-    ax4 = fig.add_subplot(324)
-    ax5 = fig.add_subplot(325)
+        for filename in file_list:
+            fig = plt.figure(figsize=(8,6))
+            x,r,sf,sfM,alpha,cf,logH = np.loadtxt(filename).T #Transposed for easier unpacking
 
-    ax.set_title("Scalar field")
-    ax.set_ylabel(r"$\varphi(t,r)$")
-    ax.set_xlim(0,20)
-    ax.set_ylim(-0.6,0.6)
-    ax.plot(r,sf,'k-')
-    ax.grid()
+            ax  = fig.add_subplot(321)
+            ax2 = fig.add_subplot(322)
+            ax3 = fig.add_subplot(323)
+            ax4 = fig.add_subplot(324)
+            ax5 = fig.add_subplot(325)
 
-    ax2.set_title("Scalar field conjugate momentum")
-    ax2.set_ylabel(r"$\Pi(t,r)$")
-    ax2.set_xlim(0,20)
-    ax2.set_ylim(-1,1)
-    ax2.plot(r,sfM,'b-')
-    ax2.grid()
+            ax.set_title("Scalar field")
+            ax.set_ylabel(r"$\varphi(t,r)$")
+            ax.set_xlim(0,20)
+            ax.set_ylim(-0.6,0.6)
+            ax.plot(r,sf,'k-')
+            ax.grid()
 
-    ax3.set_title("Lapse function")
-    ax3.set_ylabel(r"$\alpha(t,r)$")
-    ax3.set_xlim(0,20)
-    ax3.set_ylim(0,1.02)
-    ax3.plot(r,alpha,'r-')
-    ax3.grid()
+            ax2.set_title("Scalar field conjugate momentum")
+            ax2.set_ylabel(r"$\Pi(t,r)$")
+            ax2.set_xlim(0,20)
+            ax2.set_ylim(-1,1)
+            ax2.plot(r,sfM,'b-')
+            ax2.grid()
 
-    ax4.set_title("Conformal factor")
-    ax4.set_xlabel(r"$r$")
-    ax4.set_ylabel(r"$W(t,r)$")
-    ax4.set_xlim(0,20)
-    ax4.set_ylim(0,1.02)
-    ax4.plot(r,cf,'g-',label=("$p = 0.043149493$"))
-    ax4.grid()
+            ax3.set_title("Lapse function")
+            ax3.set_ylabel(r"$\alpha(t,r)$")
+            ax3.set_xlim(0,20)
+            ax3.set_ylim(0,1.02)
+            ax3.plot(r,alpha,'r-')
+            ax3.grid()
 
-    ax5.set_title("Hamiltonian constraint violation")
-    ax5.set_xlabel(r"$r$")
-    ax5.set_ylabel(r"$\mathcal{H}(t,r)$")
-    ax5.set_xlim(0,20)
-    ax5.set_ylim(-16,0)
-    ax5.plot(r,logH,'m-')
-    ax5.grid()
+            ax4.set_title("Conformal factor")
+            ax4.set_xlabel(r"$r$")
+            ax4.set_ylabel(r"$W(t,r)$")
+            ax4.set_xlim(0,20)
+            ax4.set_ylim(0,1.02)
+            ax4.plot(r,cf,'g-',label=("$p = 0.043149493$"))
+            ax4.grid()
 
-    plt.tight_layout()
-    savefig(filename+".png",dpi=150)
-    plt.close(fig)
-    sys.stdout.write("%c[2K" % 27)
-    sys.stdout.write("Processing file "+filename+"\r")
-    sys.stdout.flush()
+            ax5.set_title("Hamiltonian constraint violation")
+            ax5.set_xlabel(r"$r$")
+            ax5.set_ylabel(r"$\mathcal{H}(t,r)$")
+            ax5.set_xlim(0,20)
+            ax5.set_ylim(-16,0)
+            ax5.plot(r,logH,'m-')
+            ax5.grid()
 
-import matplotlib.image as mgimg
+            plt.tight_layout()
+            savefig(filename+".png",dpi=150)
+            plt.close(fig)
+            sys.stdout.write("%c[2K" % 27)
+            sys.stdout.write("Processing file "+filename+"\r")
+            sys.stdout.flush()
 
-fig = plt.figure(frameon=False)
-ax = fig.add_axes([0, 0, 1, 1])
-ax.axis('off')
+    def build_convergence(self):
+        fig = plt.figure(frameon=False)
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.axis('off')
 
-myimages = []
+        myimages = []
 
-for i in range(len(file_list)):
-    img = mgimg.imread(file_list[i]+".png")
-    imgplot = plt.imshow(img)
-    myimages.append([imgplot])
+        for i in range(len(file_list)):
+            img = mgimg.imread(file_list[i]+".png")
+            imgplot = plt.imshow(img)
+            myimages.append([imgplot])
 
-ani = animation.ArtistAnimation(fig, myimages, interval=100,  repeat_delay=1000)
-plt.close()
-ani.save(os.path.join(outdir,'ScalarField_Collapse.mp4'), fps=5, dpi=150)
+        ani = animation.ArtistAnimation(fig, myimages, interval=100,  repeat_delay=1000)
+        plt.close()
+        ani.save(os.path.join(self.ccodesdir.outdir,'ScalarField_Collapse.mp4'), fps=5, dpi=150)
 
-os.chdir(outdir)
+        os.chdir(self.ccodesdir.outdir)
 
-cmd.delete_existing_files("out320*.txt")
-cmd.Execute("ScalarFieldCollapse_Playground", "320 2 2 "+str(CFL_FACTOR),"out320.txt")
+        cmd.delete_existing_files("out320*.txt")
+        cmd.Execute("ScalarFieldCollapse_Playground", "320 2 2 "+str(self.numerical.cfl_factor),"out320.txt")
 
-os.chdir(os.path.join("..",".."))
+        os.chdir(os.path.join("..",".."))
 
-outfig = os.path.join(outdir,"ScalarFieldCollapse_H_convergence.png")
+        outfig = os.path.join(self.ccodesdir.outdir,"ScalarFieldCollapse_H_convergence.png")
 
-fig = plt.figure()
+        fig = plt.figure()
 
-r_640,H_640 = np.loadtxt(os.path.join(outdir,"out640.txt")).T
-r_320,H_320 = np.loadtxt(os.path.join(outdir,"out320.txt")).T
+        r_640,H_640 = np.loadtxt(os.path.join(self.ccodesdir.outdir,"out640.txt")).T
+        r_320,H_320 = np.loadtxt(os.path.join(self.ccodesdir.outdir,"out320.txt")).T
 
-plt.title("Plot demonstrating 4th order\nconvergence of constraint violations")
-plt.xlabel(r"$r$")
-plt.ylabel(r"$\log_{10}|\mathcal{H}|$")
-plt.xlim(0,16)
-plt.plot(r_640,H_640,label=r"$N_{r} = 640$")
-plt.plot(r_320,H_320+4*np.log10(320.0/640.0),label=r"$N_{r} = 320$, mult by $(320/640)^{4}$")
-plt.legend()
+        plt.title("Plot demonstrating 4th order\nconvergence of constraint violations")
+        plt.xlabel(r"$r$")
+        plt.ylabel(r"$\log_{10}|\mathcal{H}|$")
+        plt.xlim(0,16)
+        plt.plot(r_640,H_640,label=r"$N_{r} = 640$")
+        plt.plot(r_320,H_320+4*np.log10(320.0/640.0),label=r"$N_{r} = 320$, mult by $(320/640)^{4}$")
+        plt.legend()
 
-plt.tight_layout()
-plt.savefig(outfig,dpi=150)
-plt.close(fig)
+        plt.tight_layout()
+        plt.savefig(outfig,dpi=150)
+        plt.close(fig)
+
+    def build(self):
+        self.build_main()
+        self.compile()
+        self.build_animation()
+        self.build_convergence()
