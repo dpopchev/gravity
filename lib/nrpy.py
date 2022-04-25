@@ -139,7 +139,7 @@ class NumericalIntegration:
         rfm.out_timestep_func_to_file(destination)
 
     def build(self):
-        self.rk_order = Butcher_dict[RK_method][1]
+        self.rk_order = Butcher_dict[self.method][1]
         self.build_moltimestepping()
         par.set_parval_from_str("finite_difference::FD_CENTDERIVS_ORDER", self.fd_order)
 
@@ -155,7 +155,7 @@ class Simd:
 
 @dataclass
 class ScalarFieldInitData:
-    _outputfilename InitVar[str] = 'SFID.txt'
+    _outputfilename: InitVar[str] = 'SFID.txt'
     outputfilename: str = None
     ccodesdir: CcodesDir = None
     id_family: str       = "Gaussian_pulse"
@@ -169,7 +169,7 @@ class ScalarFieldInitData:
 
     def __post_init__(self, _outputfilename):
         if self.outputfilename is None:
-            self.outputfilename = os.path.join(ccodesdir.root, _outputfilename)
+            self.outputfilename = os.path.join(self.ccodesdir.root, _outputfilename)
 
     def build(self):
         self.rmax = self.coord_system.domain_size*self.rmax_weight
@@ -591,3 +591,33 @@ class MainCcode:
         self.compile()
         self.build_animation()
         self.build_convergence()
+
+def build_scalar_field_collapse():
+    ccodesdir = CcodesDir()
+    spatial_dimension = SpatialDimension()
+    coord_system = CoordSystem()
+    numerical = NumericalIntegration(ccodesdir=ccodesdir)
+    simd = Simd(ccodesdir=ccodesdir)
+    scalar_field_init_data = ScalarFieldInitData(ccodesdir=ccodesdir,
+                                                 coord_system=coord_system)
+    adm_bssn_converter = AdmBssnCoordConverter(coord_system=coord_system,
+                                               ccodesdir=ccodesdir)
+    bssn_spacetime = BssnSpaceTime(numerical=numerical, ccodesdir=ccodesdir,
+                                   spatial_dimension=spatial_dimension,
+                                   coord_system=coord_system)
+    boundary_condition = BoundaryCondition(ccodesdir=ccodesdir)
+    main_ccode = MainCcode(ccodesdir=ccodesdir, numerical=numerical)
+
+    steps = (ccodesdir, )
+    steps += (spatial_dimension, )
+    steps += (coord_system, )
+    steps += (numerical, )
+    steps += (simd, )
+    steps += (scalar_field_init_data, )
+    steps += (adm_bssn_converter, )
+    steps += (bssn_spacetime, )
+    steps += (boundary_condition, )
+    steps += (main_ccode, )
+
+    for step in steps:
+        step.build()
