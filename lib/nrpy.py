@@ -9,18 +9,27 @@ import reference_metric as rfm   # NRPy+: Reference metric support
 import cmdline_helper as cmd     # NRPy+: Multi-platform Python command-line interface
 import shutil, os, sys           # Standard Python modules for multiplatform OS-level functions
 
-# Step P2: Create C code output directory:
-Ccodesdir = os.path.join("BSSN_ScalarFieldCollapse_Ccodes")
-# First remove C code output directory if it exists
-# Courtesy https://stackoverflow.com/questions/303200/how-do-i-remove-delete-a-folder-that-is-not-empty
-# !rm -r ScalarWaveCurvilinear_Playground_Ccodes
-shutil.rmtree(Ccodesdir, ignore_errors=True)
-# Then create a fresh directory
-cmd.mkdir(Ccodesdir)
+from dataclasses import dataclass, InitVar
+from typing import Any
 
-# Step P3: Create executable output directory:
-outdir = os.path.join(Ccodesdir,"output")
-cmd.mkdir(outdir)
+@dataclass
+class CcodesDir:
+    _root: InitVar[Any] = "BSSN_ScalarFieldCollapse_Ccodes"
+    _outdir: InitVar[Any] = 'output'
+    root: str = None
+    outdir: str = None
+
+    def __post_init__(self, _root, _outdir):
+        if self.root is None:
+            self.root = os.path.join(_root)
+
+        if self.outdir is None:
+            self.outdir = os.path.join(self.root, _outdir)
+
+    def build(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+        cmd.mkdir(self.root)
+        cmd.mkdir(self.outdir)
 
 # Step 1: Set the spatial dimension parameter
 #         to three this time, and then read
