@@ -166,8 +166,16 @@ class ScalarFieldInitData:
                                      self.rmax)
         sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=self.ccodesdir.root)
 
+
+@dataclass
+class AdmBssnCoordConverter:
+    coord_system: CoordSystem = None
+    ccodesdir: CcodesDir = None
+    adm_quantities: str = 'ID_scalarfield_ADM_quantities'
+
+    def build(self):
         AtoBnum.Convert_Spherical_or_Cartesian_ADM_to_BSSN_curvilinear(self.coord_system.name,
-                                                                       "ID_scalarfield_ADM_quantities",
+                                                                       self.adm_quantities,
                                                                        Ccodesdir=self.ccodesdir.root,
                                                                        loopopts="")
 par.set_parval_from_str("BSSN.BSSN_gauge_RHSs::LapseEvolutionOption", LapseCondition)
