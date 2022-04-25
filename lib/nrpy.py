@@ -34,10 +34,11 @@ from matplotlib import animation
 
 from dataclasses import dataclass, InitVar, field
 from typing import Any, List
+from itertools import product
 
 @dataclass
 class CcodesDir:
-    _root: InitVar[Any] = "BSSN_ScalarFieldCollapse_Ccodes"
+    _root: InitVar[Any] = "ccodesdir_default"
     _outdir: InitVar[Any] = 'output'
     root: str = None
     outdir: str = None
@@ -61,7 +62,7 @@ class SpatialDimension:
     dim: Any = None
 
     def build(self):
-        par.set_parval_from_str(self.parameter,self.parameter)
+        par.set_parval_from_str(self.parameter,self.value)
         self.dim = par.parval_from_str(self.parameter)
 
 @dataclass
@@ -84,9 +85,9 @@ class CoordSystem:
 
     def build(self):
         par.set_parval_from_str("reference_metric::CoordSystem",self.name)
-        rfm.reference_metric() # Create ReU, ReDD needed for rescaling B-L initial data, generating BSSN RHSs, etc.
+        rfm.reference_metric()
 
-        if is_spherical_symmetry:
+        if self.is_spherical_symmetry:
             par.set_parval_from_str("indexedexp::symmetry_axes","12")
 
 @dataclass
@@ -141,6 +142,7 @@ class NumericalIntegration:
     def build(self):
         self.rk_order = Butcher_dict[self.method][1]
         self.build_moltimestepping()
+        self.build_timestep()
         par.set_parval_from_str("finite_difference::FD_CENTDERIVS_ORDER", self.fd_order)
 
 @dataclass
@@ -149,9 +151,9 @@ class Simd:
     ccodesdir: CcodesDir = None
 
     def build(self):
-        destination = os.path.join(ccodesdir.root, 'SIMD')
+        destination = os.path.join(self.ccodesdir.root, 'SIMD')
         cmd.mkdir(destination)
-        shutil.copy(source,destination)
+        shutil.copy(self.source,destination)
 
 @dataclass
 class ScalarFieldInitData:
@@ -169,7 +171,7 @@ class ScalarFieldInitData:
 
     def __post_init__(self, _outputfilename):
         if self.outputfilename is None:
-            self.outputfilename = os.path.join(self.ccodesdir.root, _outputfilename)
+            self.outputfilename = os.path.join(self.ccodesdir.outdir, _outputfilename)
 
     def build(self):
         self.rmax = self.coord_system.domain_size*self.rmax_weight
@@ -443,6 +445,7 @@ class BoundaryCondition:
 class MainCcode:
     ccodesdir: CcodesDir = None
     numerical: NumericalIntegration = None
+    file_list: List = field(default_factory=list)
 
     def build_main(self):
 
@@ -456,7 +459,7 @@ class MainCcode:
         // Part P0.c: Set the number of ghost cells, from NRPy+'s FD_CENTDERIVS_ORDER
         REAL CFL_FACTOR = """+str(self.numerical.cfl_factor)+"""; // Set the CFL Factor. Can be overwritten at command line.\n""")
 
-        shutil.copy('templates/ScalarFieldCollapse_Playground.c', 'BSSN_ScalarFieldCollapse_Ccodes/ScalarFieldCollapse_Playground.c')
+        shutil.copy('templates/ScalarFieldCollapse_Playground.c', f'{self.ccodesdir.root}/ScalarFieldCollapse_Playground.c')
 
     def compile(self):
         print("Now compiling, should take ~10 seconds...\n")
@@ -486,11 +489,11 @@ class MainCcode:
     def build_animation(self):
 
         globby = glob.glob(os.path.join(self.ccodesdir.outdir,'out640-00*.txt'))
-        file_list = []
+        self.file_list = []
         for x in sorted(globby):
-            file_list.append(x)
+            self.file_list.append(x)
 
-        for filename in file_list:
+        for filename in self.file_list:
             fig = plt.figure(figsize=(8,6))
             x,r,sf,sfM,alpha,cf,logH = np.loadtxt(filename).T #Transposed for easier unpacking
 
@@ -551,8 +554,8 @@ class MainCcode:
 
         myimages = []
 
-        for i in range(len(file_list)):
-            img = mgimg.imread(file_list[i]+".png")
+        for i in range(len(self.file_list)):
+            img = mgimg.imread(self.file_list[i]+".png")
             imgplot = plt.imshow(img)
             myimages.append([imgplot])
 
