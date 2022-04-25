@@ -9,8 +9,8 @@ import reference_metric as rfm   # NRPy+: Reference metric support
 import cmdline_helper as cmd     # NRPy+: Multi-platform Python command-line interface
 import shutil, os, sys           # Standard Python modules for multiplatform OS-level functions
 
-from dataclasses import dataclass, InitVar
-from typing import Any
+from dataclasses import dataclass, InitVar, field
+from typing import Any, List
 
 @dataclass
 class CcodesDir:
@@ -31,37 +31,36 @@ class CcodesDir:
         cmd.mkdir(self.root)
         cmd.mkdir(self.outdir)
 
-# Step 1: Set the spatial dimension parameter
-#         to three this time, and then read
-#         the parameter as DIM.
-par.set_parval_from_str("grid::DIM",3)
-DIM = par.parval_from_str("grid::DIM")
+@dataclass
+class SpatialDimension:
+    parameter: str = "grid::DIM"
+    value: int = 3
+    dim: Any = None
 
-# Step 2: Set some core parameters, including CoordSystem MoL timestepping algorithm,
-#                                 FD order, floating point precision, and CFL factor:
-# Choices are: Spherical, SinhSpherical, SinhSphericalv2, Cylindrical, SinhCylindrical,
-#              SymTP, SinhSymTP
-CoordSystem     = "Spherical"
+    def build(self):
+        par.set_parval_from_str(self.parameter,self.parameter)
+        self.dim = par.parval_from_str(self.parameter)
 
-# Step 2.a: Set defaults for Coordinate system parameters.
-#           These are perhaps the most commonly adjusted parameters,
-#           so we enable modifications at this high level.
-domain_size     = 32
+@dataclass
+class CoordSystem:
+    _name: InitVar[str] = "Spherical"
+    name: str = None
+    choices: List = field(default_factory=lambda: ['Spherical', 'SinhSpherical', 'SinhSphericalv2', 'Cylindrical', 'SinhCylindrical', 'SymTP', 'SinhSymTP'])
+    domain_size: int = 32
+    sinh_width: float = 0.2 # If Sinh* coordinates chosen
+    sinhv2_const_dr: float = 0.05# If Sinh*v2 coordinates chosen
+    symtp_bscale: float    = 0.5 # If SymTP chosen
 
-# sinh_width sets the default value for:
-#   * SinhSpherical's params.SINHW
-#   * SinhCylindrical's params.SINHW{RHO,Z}
-#   * SinhSymTP's params.SINHWAA
-sinh_width      = 0.2 # If Sinh* coordinates chosen
+    def __post_init__(self, _name):
+        if self.name is None:
+            self.name = _name
 
-# sinhv2_const_dr sets the default value for:
-#   * SinhSphericalv2's params.const_dr
-#   * SinhCylindricalv2's params.const_d{rho,z}
-sinhv2_const_dr = 0.05# If Sinh*v2 coordinates chosen
+        if self.name not in self.choices:
+            raise AttributeError(f'{self.name} should be one of {self.choices}')
 
-# SymTP_bScale sets the default value for:
-#   * SinhSymTP's params.bScale
-SymTP_bScale    = 0.5 # If SymTP chosen
+@dataclass
+class Derivatives
+    
 
 # Step 2.b: Set the order of spatial and temporal derivatives;
 #           the core data type, and the CFL factor.
