@@ -8,6 +8,8 @@ import indexedexp as ixp         # NRPy+: Symbolic indexed expression (e.g., ten
 import reference_metric as rfm   # NRPy+: Reference metric support
 import cmdline_helper as cmd     # NRPy+: Multi-platform Python command-line interface
 import shutil, os, sys           # Standard Python modules for multiplatform OS-level functions
+import MoLtimestepping.C_Code_Generation as MoL
+from MoLtimestepping.RK_Butcher_Table_Dictionary import Butcher_dict
 
 from dataclasses import dataclass, InitVar, field
 from typing import Any, List
@@ -58,40 +60,58 @@ class CoordSystem:
         if self.name not in self.choices:
             raise AttributeError(f'{self.name} should be one of {self.choices}')
 
+    def build(self):
+        pass
+
 @dataclass
-class Derivatives
-    
+class NumericalIntegration:
+    _method: InitVar[str] = 'RK4'
+    method: str = None
+    fd_order: int = 4
+    real: str = 'double'
+    cfl_factor: float = 0.5
+    choices: List = field(default_factory=lambda: ['Euler', 'RK2 Heun', 'RK2 MP', 'RK2 Ralston', 'RK3', 'RK3 Heun', 'RK3 Ralston', 'SSPRK3', 'RK4', 'DP5', 'DP5alt', 'CK5', 'DP6', 'L6', 'DP8'])
+    lapse: str = "OnePlusLog"
+    shift: str = "GammaDriving2ndOrder_Covariant"
+    rk_order: Any = None
+    ccodesdir: CcodesDir = None
+    rhs_string: str = None
+    post_rhs_string: str = None
 
-# Step 2.b: Set the order of spatial and temporal derivatives;
-#           the core data type, and the CFL factor.
-# RK_method choices include: Euler, "RK2 Heun", "RK2 MP", "RK2 Ralston", RK3, "RK3 Heun", "RK3 Ralston",
-#              SSPRK3, RK4, DP5, DP5alt, CK5, DP6, L6, DP8
-RK_method = "RK4"
-FD_order  = 4        # Finite difference order: even numbers only, starting with 2. 12 is generally unstable
-REAL      = "double" # Best to use double here.
-CFL_FACTOR= 0.5
+    def __post_init__(self, _method):
+        if self.method is None:
+            self.method = _method
 
-# Set the lapse & shift conditions
-LapseCondition  = "OnePlusLog"
-ShiftCondition  = "GammaDriving2ndOrder_Covariant"
+        if self.method not in self.choices:
+            raise AttributeError(f'{self.name} should be one of {self.choices}')
 
-# Step 3: Generate Runge-Kutta-based (RK-based) timestepping code.
-#       As described above the Table of Contents, this is a 3-step process:
-#       3.A: Evaluate RHSs (RHS_string)
-#       3.B: Apply boundary conditions (post_RHS_string, pt 1)
-#       3.C: Enforce det(gammabar) = det(gammahat) constraint (post_RHS_string, pt 2)
-import MoLtimestepping.C_Code_Generation as MoL
-from MoLtimestepping.RK_Butcher_Table_Dictionary import Butcher_dict
-RK_order  = Butcher_dict[RK_method][1]
-cmd.mkdir(os.path.join(Ccodesdir,"MoLtimestepping/"))
-MoL.MoL_C_Code_Generation(RK_method,
-    RHS_string      = """
-Ricci_eval(&rfmstruct, &params, RK_INPUT_GFS, auxevol_gfs);
-rhs_eval(&rfmstruct, &params, auxevol_gfs, RK_INPUT_GFS, RK_OUTPUT_GFS);""",
-    post_RHS_string = """
-apply_bcs_curvilinear(&params, &bcstruct, NUM_EVOL_GFS, evol_gf_parity, RK_OUTPUT_GFS);
-enforce_detgammahat_constraint(&rfmstruct, &params,                     RK_OUTPUT_GFS);\n""",
-    outdir = os.path.join(Ccodesdir,"MoLtimestepping/"))
+    def build_rhs_string(self):
+        ricci_eval = 'Ricci_eval(&rfmstruct, &params, RK_INPUT_GFS, auxevol_gfs);'
+        rhs_eval = 'rhs_eval(&rfmstruct, &params, auxevol_gfs, RK_INPUT_GFS, RK_OUTPUT_GFS);'
+        self.rhs_string = '\n'.join(['\n', ricci_eval, rhs_eval, '\n'])
+
+    def build_post_rhs_string(self):
+        apply_bcs_curvilinear = 'apply_bcs_curvilinear(&params, &bcstruct, NUM_EVOL_GFS, evol_gf_parity, RK_OUTPUT_GFS);'
+        enforce_detgammahat_constraint = 'enforce_detgammahat_constraint(&rfmstruct, &params,                     RK_OUTPUT_GFS);'
+        self.post_rhs_string = '\n'.join(['\n', apply_bcs_curvilinear, enforce_detgammahat_constraint, '\n'])
+
+    def build_moltimestepping(self):
+        dirname = 'MoLtimestepping'
+        dirtarget = os.path.join(self.ccodesdir.root, dirname)
+        cmd.mkdir(dirtarget)
+
+        self.build_rhs_string()
+        self.build_post_rhs_string()
+
+        MoL.MoL_C_Code_Generation(self.method,
+                                  RHS_string=self.rhs_string,
+                                  post_RHS_string=self.post_rhs_string,
+                                  outdir=dirtarget
+                                  )
+
+    def build(self):
+        self.rk_order = Butcher_dict[RK_method][1]
+        self.build_moltimestepping()
 
 # Step 4: Set the coordinate system for the numerical grid
 par.set_parval_from_str("reference_metric::CoordSystem",CoordSystem)
