@@ -10,6 +10,11 @@ import cmdline_helper as cmd     # NRPy+: Multi-platform Python command-line int
 import shutil, os, sys           # Standard Python modules for multiplatform OS-level functions
 import MoLtimestepping.C_Code_Generation as MoL
 from MoLtimestepping.RK_Butcher_Table_Dictionary import Butcher_dict
+import ScalarField.ScalarField_InitialData as sfid
+import BSSN.ADM_Numerical_Spherical_or_Cartesian_to_BSSNCurvilinear as AtoBnum
+import time
+import BSSN.BSSN_RHSs as rhs
+import BSSN.BSSN_gauge_RHSs as gaugerhs
 
 from dataclasses import dataclass, InitVar, field
 from typing import Any, List
@@ -132,32 +137,39 @@ class Simd:
         cmd.mkdir(destination)
         shutil.copy(source,destination)
 
-# Step 2.a: Import necessary Python and NRPy+ modules
-import ScalarField.ScalarField_InitialData as sfid
+@dataclass
+class ScalarFieldInitData:
+    _outputfilename InitVar[str] = 'SFID.txt'
+    outputfilename: str = None
+    ccodesdir: CcodesDir = None
+    id_family: str       = "Gaussian_pulse"
+    pulse_amplitude: float = 0.4
+    pulse_center: float    = 0
+    pulse_width: float     = 1
+    nr: int              = 30000
+    coord_system: CoordSystem = None
+    rmax_weight: float = 1.1
+    rmax: float = None
 
-# Step 2.b: Set the initial data parameters
-outputfilename  = os.path.join(outdir,"SFID.txt")
-ID_Family       = "Gaussian_pulse"
-pulse_amplitude = 0.4
-pulse_center    = 0
-pulse_width     = 1
-Nr              = 30000
-rmax            = domain_size*1.1
+    def __post_init__(self, _outputfilename):
+        if self.outputfilename is None:
+            self.outputfilename = os.path.join(ccodesdir.root, _outputfilename)
 
-# Step 2.c: Generate the initial data
-sfid.ScalarField_InitialData(outputfilename,ID_Family,
-                             pulse_amplitude,pulse_center,pulse_width,Nr,rmax)
+    def build(self):
+        self.rmax = self.coord_system.domain_size*self.rmax_weight
+        sfid.ScalarField_InitialData(self.outputfilename,
+                                     self.id_family,
+                                     self.pulse_amplitude,
+                                     self.pulse_center,
+                                     self.pulse_width,
+                                     self.nr,
+                                     self.rmax)
+        sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=self.ccodesdir.root)
 
-# Step 2.d: Generate the needed C code
-sfid.NRPy_param_funcs_register_C_functions_and_NRPy_basic_defines(Ccodesdir=Ccodesdir)
-
-import BSSN.ADM_Numerical_Spherical_or_Cartesian_to_BSSNCurvilinear as AtoBnum
-AtoBnum.Convert_Spherical_or_Cartesian_ADM_to_BSSN_curvilinear("Spherical","ID_scalarfield_ADM_quantities",
-                                                               Ccodesdir=Ccodesdir,loopopts="")
-
-import time
-import BSSN.BSSN_RHSs as rhs
-import BSSN.BSSN_gauge_RHSs as gaugerhs
+        AtoBnum.Convert_Spherical_or_Cartesian_ADM_to_BSSN_curvilinear(self.coord_system.name,
+                                                                       "ID_scalarfield_ADM_quantities",
+                                                                       Ccodesdir=self.ccodesdir.root,
+                                                                       loopopts="")
 par.set_parval_from_str("BSSN.BSSN_gauge_RHSs::LapseEvolutionOption", LapseCondition)
 par.set_parval_from_str("BSSN.BSSN_gauge_RHSs::ShiftEvolutionOption", ShiftCondition)
 
