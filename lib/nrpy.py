@@ -36,6 +36,10 @@ from dataclasses import dataclass, InitVar, field
 from typing import Any, List
 from itertools import product
 
+# BUILD_STEPS
+# CcodesDir.build()
+#
+
 @dataclass
 class CcodesDir:
     root: str = None
@@ -65,15 +69,22 @@ class CcodesDir:
         self.make_outdir()
         return self
 
+
 @dataclass
 class SpatialDimension:
-    parameter: str = "grid::DIM"
-    value: int = 3
-    dim: Any = None
+    parameter: str = None
+    value: int = None
 
-    def build(self):
-        par.set_parval_from_str(self.parameter,self.value)
-        self.dim = par.parval_from_str(self.parameter)
+    @classmethod
+    def build(cls, parameter = 'grid:DIM', value = 3):
+        self = cls(parameter, value)
+        return self
+
+    @property
+    def dim(self):
+        par.set_parval_from_str(self.parameter, self.value)
+        _dim = par.parval_from_str(self.parameter)
+        return _dim
 
 @dataclass
 class CoordSystem:
@@ -571,7 +582,11 @@ class MainCcode:
 
         ani = animation.ArtistAnimation(fig, myimages, interval=100,  repeat_delay=1000)
         plt.close()
-        ani.save(os.path.join(self.ccodesdir.outdir,'ScalarField_Collapse.mp4'), fps=5, dpi=150)
+
+        try:
+            ani.save(os.path.join(self.ccodesdir.outdir,'ScalarField_Collapse.mp4'), fps=5, dpi=150)
+        except ValueError:
+            print('exception when saving animation, skipping')
 
         os.chdir(self.ccodesdir.outdir)
 
