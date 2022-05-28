@@ -38,8 +38,6 @@ from itertools import product
 
 @dataclass
 class CcodesDir:
-    _root: InitVar[Any] = "ccodesdir_default"
-    _outdir: InitVar[Any] = 'output'
     root: str = None
     outdir: str = None
 
@@ -50,10 +48,22 @@ class CcodesDir:
         if self.outdir is None:
             self.outdir = os.path.join(self.root, _outdir)
 
-    def build(self):
+    def clean(self):
         shutil.rmtree(self.root, ignore_errors=True)
+
+    def make_root(self):
         cmd.mkdir(self.root)
+
+    def make_outdir(self):
         cmd.mkdir(self.outdir)
+
+    @classmethod
+    def build(cls, root = "ccodesdir_default", outdir = 'output'):
+        _root, _outdir = map(os.path.join, (root, outdir))
+        self = cls(_root, _outdir)
+        self.make_root()
+        self.make_outdir()
+        return self
 
 @dataclass
 class SpatialDimension:
