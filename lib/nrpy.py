@@ -159,61 +159,59 @@ class CoordSystem:
         name = CoordSystemVariant.SINHSYMTP
         return cls(name=name, domain_size=domain_size, symtp_bscale=symtp_bscale)
 
+class RkMethodVariant(Enum):
+    EULER = auto()
+    RK2HEUN = auto()
+    RK2MP = auto()
+    RK2RALSTON = auto()
+    RK3 = auto()
+    RK3HEUN = auto()
+    RK3RALSTON = auto()
+    SSPRK3 = auto()
+    RK4 = auto()
+    DP5 = auto()
+    dp5ALT = auto()
+    CK5 = auto()
+    DP6 = auto()
+    L6 = auto()
+    DP8 = auto()
+
+    @classmethod
+    def pick(cls, candidate):
+        _candidate = candidate.strip()
+        _candidate = _candidate.upper()
+
+        members = cls.__members__.keys()
+        matches = (m for m in members if _candidate == m)
+        match = next(matches, None)
+
+        if match is None:
+            raise ValueError(f'Coordinate system {_candidate} candidate not found')
+
+        return cls.__members__[match]
+
+    @classmethod
+    def supported(cls):
+        nrpy_names = [ "Euler", "RK2 Heun", "RK2 MP", "RK2 Ralston", "RK3", "RK3 Heun", "RK3 Ralston", "SSPRK3", "RK4", "DP5", "DP5alt", "CK5", "DP6", "L6", "DP8" ]
+        members = cls.__members__.keys()
+        return { member: nrpy_name for member, nrpy_name in zip(members, nrpy_names) }
+
+    def __str__(self):
+        supported = self.__class__.supported()
+        return supported[self.name]
 
 @dataclass
 class NumericalIntegration:
-    _method: InitVar[str] = 'RK4'
-    method: str = None
-    fd_order: int = 4
-    real: str = 'double'
-    cfl_factor: float = 0.5
-    choices: List = field(default_factory=lambda: ['Euler', 'RK2 Heun', 'RK2 MP', 'RK2 Ralston', 'RK3', 'RK3 Heun', 'RK3 Ralston', 'SSPRK3', 'RK4', 'DP5', 'DP5alt', 'CK5', 'DP6', 'L6', 'DP8'])
-    lapse: str = "OnePlusLog"
-    shift: str = "GammaDriving2ndOrder_Covariant"
-    rk_order: Any = None
-    ccodesdir: CcodesDir = None
-    rhs_string: str = None
-    post_rhs_string: str = None
+    name: RkMethodVariant = None
+    fd_order: int = None
+    real: str = None
+    cfl_factor: float = None
+    lapse_condition: str = None
+    shift_condition: str = None
 
-    def __post_init__(self, _method):
-        if self.method is None:
-            self.method = _method
-
-        if self.method not in self.choices:
-            raise AttributeError(f'{self.name} should be one of {self.choices}')
-
-    def build_rhs_string(self):
-        ricci_eval = 'Ricci_eval(&rfmstruct, &params, RK_INPUT_GFS, auxevol_gfs);'
-        rhs_eval = 'rhs_eval(&rfmstruct, &params, auxevol_gfs, RK_INPUT_GFS, RK_OUTPUT_GFS);'
-        self.rhs_string = '\n'.join(['\n', ricci_eval, rhs_eval, '\n'])
-
-    def build_post_rhs_string(self):
-        apply_bcs_curvilinear = 'apply_bcs_curvilinear(&params, &bcstruct, NUM_EVOL_GFS, evol_gf_parity, RK_OUTPUT_GFS);'
-        enforce_detgammahat_constraint = 'enforce_detgammahat_constraint(&rfmstruct, &params,                     RK_OUTPUT_GFS);'
-        self.post_rhs_string = '\n'.join(['\n', apply_bcs_curvilinear, enforce_detgammahat_constraint, '\n'])
-
-    def build_moltimestepping(self):
-        dirname = 'MoLtimestepping'
-        dirtarget = os.path.join(self.ccodesdir.root, dirname)
-        cmd.mkdir(dirtarget)
-
-        self.build_rhs_string()
-        self.build_post_rhs_string()
-
-        MoL.MoL_C_Code_Generation(self.method,
-                                  RHS_string=self.rhs_string,
-                                  post_RHS_string=self.post_rhs_string,
-                                  outdir=dirtarget
-                                  )
-    def build_timestep(self):
-        destination = os.path.join(self.ccodesdir.root, 'find_timestep.h')
-        rfm.out_timestep_func_to_file(destination)
-
-    def build(self):
-        self.rk_order = Butcher_dict[self.method][1]
-        self.build_moltimestepping()
-        self.build_timestep()
-        par.set_parval_from_str("finite_difference::FD_CENTDERIVS_ORDER", self.fd_order)
+    @classmethod
+    def build(cls, name=RkMethodVariant.RK4, fd_order=4, real="double", cfl_factor=0.5, lapse_condition='OnePlusLog', shift_condition="GammaDriving2ndOrder_Covariant"):
+        return cls(name, fd_order, real, cfl_factor, lapse_condition, shift_condition)
 
 @dataclass
 class Simd:
