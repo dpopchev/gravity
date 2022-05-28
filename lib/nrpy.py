@@ -35,6 +35,7 @@ from matplotlib import animation
 from dataclasses import dataclass, InitVar, field
 from typing import Any, List
 from itertools import product
+from enums import Enum, auto
 
 # BUILD_STEPS
 # CcodesDir.build()
@@ -86,30 +87,78 @@ class SpatialDimension:
         _dim = par.parval_from_str(self.parameter)
         return _dim
 
+
+class CoordSystemVariant(Enum):
+    SPHERICAL = auto()
+    SINHSPHERICAL = auto()
+    SINHSPHERICALV2 = auto()
+    CYLINDRICAL = auto()
+    SINHCYLINDRICAL = auto()
+    SYMTP = auto()
+    SINHSYMTP = auto()
+
+    @classmethod
+    def pick(cls, candidate):
+        _candidate = candidate.strip()
+        _candidate = _candidate.upper()
+
+        members = cls.__members__.keys()
+        matches = (m for m in members if _candidate == m)
+        match = next(matches, None)
+
+        if match is None:
+            raise ValueError(f'Coordinate system {_candidate} candidate not found')
+
+        return cls.__members__[match]
+
+    @classmethod
+    def supported(cls):
+        nrpy_names = ['Spherical', 'SinhSpherical', 'SinhSphericalv2', 'Cylindrical', 'SinhCylindrical', 'SymTP', 'SinhSymTP']
+        members = cls.__members__.keys()
+        return { member: nrpy_name for member, nrpy_name in zip(members, nrpy_names) }
+
+    def __str__(self):
+        supported = self.__class__.supported()
+        return supported[self.name]
+
 @dataclass
 class CoordSystem:
-    _name: InitVar[str] = "Spherical"
-    name: str = None
-    choices: List = field(default_factory=lambda: ['Spherical', 'SinhSpherical', 'SinhSphericalv2', 'Cylindrical', 'SinhCylindrical', 'SymTP', 'SinhSymTP'])
-    domain_size: int = 32
-    sinh_width: float = 0.2 # If Sinh* coordinates chosen
-    sinhv2_const_dr: float = 0.05# If Sinh*v2 coordinates chosen
-    symtp_bscale: float    = 0.5 # If SymTP chosen
-    is_spherical_symmetry: bool = True
+    name: CoordSystemVariant = None
+    domain_size: int = None
+    sinh_width: float = None
+    sinhv2_const_dr: float = None
+    symtp_bscale: float = None
 
-    def __post_init__(self, _name):
-        if self.name is None:
-            self.name = _name
+    @classmethod
+    def build_spherical(cls, domain_size=32):
+        name = CoordSystemVariant.SPHERICAL
+        return cls(name=name, domain_size=domain_size)
 
-        if self.name not in self.choices:
-            raise AttributeError(f'{self.name} should be one of {self.choices}')
+    @classmethod
+    def build_sinh_spherical(cls, domain_size=32, sinh_width=0.2):
+        name = CoordSystemVariant.SINHSPHERICAL
+        return cls(name=name, domain_size=domain_size, sinh_width=sinh_width)
 
-    def build(self):
-        par.set_parval_from_str("reference_metric::CoordSystem",self.name)
-        rfm.reference_metric()
+    @classmethod
+    def build_sinh_spherical_v2(cls, domain_size=32, sinhv2_const_dr=0.05):
+        name = CoordSystemVariant.SINHSPHERICALV2
+        return cls(name=name, domain_size=domain_size, sinhv2_const_dr=sinhv2_const_dr)
 
-        if self.is_spherical_symmetry:
-            par.set_parval_from_str("indexedexp::symmetry_axes","12")
+    @classmethod
+    def build_sinh_cylindrical(cls, domain_size=32, sinh_width=0.2):
+        name = CoordSystemVariant.SINHCYLINDRICAL
+        return cls(name=name, domain_size=domain_size, sinh_width=sinh_width)
+
+    @classmethod
+    def build_sinh_symtp(cls, domain_size=32, sinh_width=0.2):
+        name = CoordSystemVariant.SINHSYMTP
+        return cls(name=name, domain_size=domain_size, sinh_width=sinh_width)
+
+    @classmethod
+    def build_symtp_bscale(cls, domain_size=32, symtp_bscale=0.5):
+        name = CoordSystemVariant.SINHSYMTP
+        return cls(name=name, domain_size=domain_size, symtp_bscale=symtp_bscale)
+
 
 @dataclass
 class NumericalIntegration:
