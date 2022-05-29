@@ -61,30 +61,99 @@ class CcodesDir:
     def make_outdir(self):
         cmd.mkdir(self.outdir)
 
-    @classmethod
-    def build(cls, root = "ccodesdir_default", outdir = 'output'):
-        _root, _outdir = map(os.path.join, (root, outdir))
-        self = cls(_root, _outdir)
-        self.make_root()
-        self.make_outdir()
-        return self
+    def make_under_root(self, destination):
+        _destination = os.path.join(self.root, destination)
+        cmd.mkdir(_destination)
+        return _destination
 
+@dataclass
+class CcodePrototypeArgument:
+    name: str = None
+    address_order: int = 0
+
+    def as_string(self):
+        return self.__str__()
+
+    def __str__(self):
+        return ''.join(['&'*self.address_order, name])
+
+@dataclass
+class CcodePrototype:
+    name: str = None
+    parameters: Any = None
+
+    def __str__(self):
+        parameters = ', '.join(self.parameters)
+        return f'{self.name}({parameters});'
+
+    def as_string(self):
+        return self.__str__()
+
+    @classmethod
+    def build_ricci_eval(cls):
+        name = 'Ricci_eval'
+        parameters = (
+            CcodePrototypeArgument('rfmstruct', address_order=1),
+            CcodePrototypeArgument('params', address_order=1),
+            CcodePrototypeArgument('RK_INPUT_GFS', address_order=0),
+            CcodePrototypeArgument('auxevol_gfs', address_order=0),
+        )
+
+        return cls(name=name, parameters=parameters)
+
+    @classmethod
+    def build_rhs_eval(cls):
+        name = 'rhs_eval'
+        parameters = (
+            CcodePrototypeArgument('rfmstruct', address_order=1),
+            CcodePrototypeArgument('params', address_order=1),
+            CcodePrototypeArgument('auxevol_gfs', address_order=0),
+            CcodePrototypeArgument('RK_INPUT_GFS', address_order=0),
+            CcodePrototypeArgument('RK_OUTPUT_GFS', address_order=0),
+        )
+
+        return cls(name=name, parameters=parameters)
+
+    @classmethod
+    def build_apply_bcs_curvilinear(cls):
+        name = 'apply_bcs_curvilinear'
+        parameters = (
+            CcodePrototypeArgument('params', address_order=1),
+            CcodePrototypeArgument('bcstruct', address_order=1),
+            CcodePrototypeArgument('NUM_EVOL_GFS', address_order=0),
+            CcodePrototypeArgument('evol_gf_parity', address_order=0),
+            CcodePrototypeArgument('RK_OUTPUT_GFS', address_order=0),
+        )
+
+        return cls(name=name, parameters=parameters)
+
+    @classmethod
+    def build_enforce_detgammahat_constraint(cls):
+        name = 'enforce_detgammahat_constraint'
+        parameters = (
+            CcodePrototypeArgument('rfmstruct', address_order=1),
+            CcodePrototypeArgument('params', address_order=1),
+            CcodePrototypeArgument('RK_OUTPUT_GFS', address_order=0),
+        )
+
+        return cls(name=name, parameters=parameters)
 
 @dataclass
 class SpatialDimension:
     parameter: str = None
     value: int = None
+    par: Any = None
 
     @classmethod
-    def build(cls, parameter = 'grid:DIM', value = 3):
-        self = cls(parameter, value)
+    def build(cls, parameter = 'grid:DIM', value = 3, par):
+        self = cls(parameter, value, par)
         return self
 
     @property
     def dim(self):
-        par.set_parval_from_str(self.parameter, self.value)
-        _dim = par.parval_from_str(self.parameter)
-        return _dim
+        self.par.set_parval_from_str(self.parameter, self.value)
+        dim = self.par.parval_from_str(self.parameter)
+        return dim
 
 
 class CoordSystemVariant(Enum):
@@ -195,6 +264,9 @@ class RkMethodVariant(Enum):
         members = cls.__members__.keys()
         return { member: nrpy_name for member, nrpy_name in zip(members, nrpy_names) }
 
+    def as_string(self):
+        return self.__str__()
+
     def __str__(self):
         supported = self.__class__.supported()
         return supported[self.name]
@@ -211,6 +283,27 @@ class NumericalIntegration:
     @classmethod
     def build(cls, name=RkMethodVariant.RK4, fd_order=4, real="double", cfl_factor=0.5, lapse_condition='OnePlusLog', shift_condition="GammaDriving2ndOrder_Covariant"):
         return cls(name, fd_order, real, cfl_factor, lapse_condition, shift_condition)
+
+    @property
+    def rk_order(self):
+        entry = Butcher_dict[self.name.as_string()]
+        return entry[1]
+
+def build_rk_timestepping_code(mol, ccodesdir, numerical_integration):
+    mol_dirname = 'MoLtimestepping'
+    code_destination = ccodesdir.make_under_root(mol_dirname)
+
+    mol_ccode_generation = {
+        'ricci_eval': CcodePrototype.build_ricci_eval(),
+        'rhs_eval': CcodePrototype.build_rhs_eval(),
+        'apply_bcs_curvilinear': CcodePrototype.build_apply_bcs_curvilinear(),
+        'enforce_detgammahat_constraint': CcodePrototype.build_enforce_detgammahat_constraint(),
+        outdir = code_destination
+    }
+
+    mol.MoL_C_Code_Generation(numerical_integration.RkMethodVariant.as_string(),
+                              **mol_ccode_generation
+                              )
 
 @dataclass
 class Simd:
