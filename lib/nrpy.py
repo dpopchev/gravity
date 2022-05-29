@@ -36,22 +36,21 @@ from dataclasses import dataclass, InitVar, field
 from typing import Any, List
 from itertools import product
 from enums import Enum, auto
+from collections import namedtuple
 
-# BUILD_STEPS
-# CcodesDir.build()
-#
 
 @dataclass
 class CcodesDir:
     root: str = None
     outdir: str = None
 
-    def __post_init__(self, _root, _outdir):
-        if self.root is None:
-            self.root = os.path.join(_root)
-
-        if self.outdir is None:
-            self.outdir = os.path.join(self.root, _outdir)
+    @classmethod
+    def build(cls, root = "ccodesdir_default", outdir = 'output'):
+        _root, _outdir = map(os.path.join, (root, outdir))
+        self = cls(_root, _outdir)
+        self.make_root()
+        self.make_outdir()
+        return self
 
     def clean(self):
         shutil.rmtree(self.root, ignore_errors=True)
