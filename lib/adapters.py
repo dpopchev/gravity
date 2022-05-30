@@ -121,3 +121,66 @@ class CoordSystem:
     def build_symtp_bscale(cls, domain_size=32, symtp_bscale=0.5):
         name = CoordSystemVariant.SINHSYMTP
         return cls(name=name, domain_size=domain_size, symtp_bscale=symtp_bscale)
+
+class IntegratorVariant(Enum):
+    EULER = auto()
+    RK2HEUN = auto()
+    RK2MP = auto()
+    RK2RALSTON = auto()
+    RK3 = auto()
+    RK3HEUN = auto()
+    RK3RALSTON = auto()
+    SSPRK3 = auto()
+    RK4 = auto()
+    DP5 = auto()
+    DP5ALT = auto()
+    CK5 = auto()
+    DP6 = auto()
+    L6 = auto()
+    DP8 = auto()
+
+    @classmethod
+    def pick(cls, candidate):
+        _candidate = candidate.strip()
+        _candidate = _candidate.upper()
+        _candidate = _candidate.replace(' ', '')
+
+        members = cls.__members__.keys()
+        matches = (m for m in members if _candidate == m)
+        match = next(matches, None)
+
+        if match is None:
+            raise ValueError(f'Coordinate system {_candidate} candidate not found')
+
+        return cls.__members__[match]
+
+    @classmethod
+    def supported(cls):
+        nrpy_names = [ "Euler", "RK2 Heun", "RK2 MP", "RK2 Ralston", "RK3", "RK3 Heun", "RK3 Ralston", "SSPRK3", "RK4", "DP5", "DP5alt", "CK5", "DP6", "L6", "DP8" ]
+        members = cls.__members__.keys()
+        return { member: nrpy_name for member, nrpy_name in zip(members, nrpy_names) }
+
+    def as_string(self):
+        return self.__str__()
+
+    def __str__(self):
+        supported = self.__class__.supported()
+        return supported[self.name]
+
+@dataclass
+class NumericalIntegration:
+    name: IntegratorVariant = None
+    fd_order: int = None
+    real: str = None
+    cfl_factor: float = None
+    lapse_condition: str = None
+    shift_condition: str = None
+
+    @classmethod
+    def build(cls, name=IntegratorVariant.RK4, fd_order=4, real="double", cfl_factor=0.5, lapse_condition='OnePlusLog', shift_condition="GammaDriving2ndOrder_Covariant"):
+        return cls(name, fd_order, real, cfl_factor, lapse_condition, shift_condition)
+
+    @property
+    def rk_order(self):
+        entry = Butcher_dict[self.name.as_string()]
+        return entry[1]

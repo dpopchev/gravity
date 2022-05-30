@@ -31,17 +31,17 @@ class TestEmptyConstruction:
     def test_parameter_attr(self, interface_parameter, expected_attrs):
         attr = 'parameter'
         acutal, expected = map(lambda _: getattr(_, attr), (interface_parameter, expected_attrs))
-        assert acutal is expected
+        assert acutal == expected
 
     def test_value_attr(self, interface_parameter, expected_attrs):
         attr = 'value'
         acutal, expected = map(lambda _: getattr(_, attr), (interface_parameter, expected_attrs))
-        assert acutal is expected
+        assert acutal == expected
 
     def test_representation_attr(self, interface_parameter, expected_attrs):
         attr = 'representation'
         acutal, expected = map(lambda _: getattr(_, attr), (interface_parameter, expected_attrs))
-        assert acutal is expected
+        assert acutal == expected
 
 class TestBuildFactoryMethod:
 

@@ -20,27 +20,27 @@ class TestBuildSphericalFactoryMethod:
     def test_name_attr(self, coord_system, expected_attrs):
         attr = 'name'
         actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
-        assert actual is expected
+        assert actual == expected
 
     def test_domain_size_attr(self, coord_system, expected_attrs):
         attr = 'domain_size'
         actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
-        assert actual is expected
+        assert actual == expected
 
     def test_sinh_width_attr(self, coord_system, expected_attrs):
         attr = 'sinh_width'
         actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
-        assert actual is expected
+        assert actual == expected
 
     def test_sinhv2_const_dr_attr(self, coord_system, expected_attrs):
         attr = 'sinhv2_const_dr'
         actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
-        assert actual is expected
+        assert actual == expected
 
     def test_symtp_bscale_attr(self, coord_system, expected_attrs):
         attr = 'symtp_bscale'
         actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
-        assert actual is expected
+        assert actual == expected
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

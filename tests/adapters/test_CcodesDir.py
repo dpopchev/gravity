@@ -20,12 +20,12 @@ class TestEmptyConstruction:
     def test_root_attr(self, ccodes_dir, expected):
         attr = 'root'
         acutal, _expected = map(lambda _: getattr(_, attr), (ccodes_dir, expected))
-        assert acutal is _expected
+        assert acutal == _expected
 
     def test_outdir_attr(self, ccodes_dir, expected):
         attr = 'outdir'
         acutal, _expected = map(lambda _: getattr(_, attr), (ccodes_dir, expected))
-        assert acutal is _expected
+        assert acutal == _expected
 
 class TestBuildFactoryMethod:
     @pytest.fixture
@@ -48,7 +48,7 @@ class TestBuildFactoryMethod:
     def test_root_attr(self, ccodes_dir, expected):
         attr = 'root'
         acutal, _expected = map(lambda _: getattr(_, attr), (ccodes_dir, expected))
-        assert acutal is _expected
+        assert acutal == _expected
 
     def test_outdir_attr(self, ccodes_dir, expected):
         attr = 'outdir'

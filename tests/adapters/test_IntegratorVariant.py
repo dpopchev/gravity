@@ -1,15 +1,15 @@
 import os
 import pytest
-from adapters import CoordSystemVariant
+from adapters import IntegratorVariant
 
 def test_pick():
-    spherical = CoordSystemVariant.pick('spherical')
-    assert spherical is CoordSystemVariant.SPHERICAL
+    actual = IntegratorVariant.pick('rk2 mp')
+    assert actual is IntegratorVariant.RK2MP
 
 def test_str_method():
-    spherical = CoordSystemVariant.pick('SpHericaL')
-    actual = str(spherical)
-    assert actual == 'Spherical'
+    actual = IntegratorVariant.pick('rk3 Heun')
+    actual = str(actual)
+    assert actual == 'RK3 Heun'
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
