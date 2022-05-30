@@ -37,6 +37,16 @@ from typing import Any, List
 from itertools import product
 from enums import Enum, auto
 from collections import namedtuple
+from types import SimpleNamespace
+
+NrpyReference = namedtuple(NrpyReference, 'ref description')
+
+nrpy = SimpleNamespace( **{
+    'par': NrpyReference(par, 'parameter interface'),
+    'rfm': NrpyReference(rfm, 'reference metric support'),
+    'mol': NrpyReference(MoL, None),
+    'cmd': NrpyReference(cmd, 'multiplatform python CLI interface')
+})
 
 
 @dataclass
@@ -56,14 +66,14 @@ class CcodesDir:
         shutil.rmtree(self.root, ignore_errors=True)
 
     def make_root(self):
-        cmd.mkdir(self.root)
+        nrpy.cmd.mkdir(self.root)
 
     def make_outdir(self):
-        cmd.mkdir(self.outdir)
+        nrpy.cmd.mkdir(self.outdir)
 
     def make_under_root(self, destination):
         _destination = os.path.join(self.root, destination)
-        cmd.mkdir(_destination)
+        nrpy.cmd.mkdir(_destination)
         return _destination
 
 @dataclass
@@ -142,19 +152,17 @@ class CcodePrototype:
 class SpatialDimension:
     parameter: str = None
     value: int = None
-    par: Any = None
 
     @classmethod
-    def build(cls, parameter = 'grid:DIM', value = 3, par):
-        self = cls(parameter, value, par)
+    def build(cls, parameter = 'grid:DIM', value = 3):
+        self = cls(parameter, value)
         return self
 
     @property
     def dim(self):
-        self.par.set_parval_from_str(self.parameter, self.value)
-        dim = self.par.parval_from_str(self.parameter)
+        nrpy.par.set_parval_from_str(self.parameter, self.value)
+        dim = nrpy.par.parval_from_str(self.parameter)
         return dim
-
 
 class CoordSystemVariant(Enum):
     SPHERICAL = auto()
@@ -238,7 +246,7 @@ class RkMethodVariant(Enum):
     SSPRK3 = auto()
     RK4 = auto()
     DP5 = auto()
-    dp5ALT = auto()
+    DP5ALT = auto()
     CK5 = auto()
     DP6 = auto()
     L6 = auto()
@@ -304,6 +312,12 @@ def build_rk_timestepping_code(mol, ccodesdir, numerical_integration):
     mol.MoL_C_Code_Generation(numerical_integration.RkMethodVariant.as_string(),
                               **mol_ccode_generation
                               )
+
+def build_coordinate_system_numerical_grid(par, rfm, coord_system):
+    parameer = 'reference_metric::CoordSystem'
+    value = coord_system.name.as_string()
+    par.set_parval_from_str(parameter, value)
+
 
 @dataclass
 class Simd:
