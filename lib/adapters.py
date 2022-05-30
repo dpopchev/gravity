@@ -1,7 +1,8 @@
 import os
 from dataclasses import dataclass
-import nrpy_local as nrpy
 from typing import Any
+from enum import Enum, auto
+import nrpy_local as nrpy
 
 @dataclass
 class CcodesDir:
