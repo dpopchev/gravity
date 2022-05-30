@@ -1,4 +1,6 @@
+import os
 from dataclasses import dataclass
+import nrpy_local as nrpy
 
 @dataclass
 class CcodesDir:
@@ -7,7 +9,8 @@ class CcodesDir:
 
     @classmethod
     def build(cls, root = "ccodesdir_default", outdir = 'output'):
-        _root, _outdir = map(os.path.join, (root, outdir))
+        _root = root
+        _outdir = os.path.join(root, outdir)
         self = cls(_root, _outdir)
         self.make_root()
         self.make_outdir()
