@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 import nrpy_local as nrpy
+from typing import Any
 
 @dataclass
 class CcodesDir:
@@ -29,3 +30,22 @@ class CcodesDir:
         _destination = os.path.join(self.root, destination)
         nrpy.cmd.mkdir(_destination)
         return _destination
+
+@dataclass
+class InterfaceParameter:
+    parameter: str = None
+    value: int = None
+    representation: Any = None
+
+    @classmethod
+    def build(cls, parameter, value):
+        self = cls(parameter, value)
+        nrpy.par.set_parval_from_str(parameter, value)
+        self.representation = nrpy.par.parval_from_str(self.parameter)
+        return self
+
+    def __str__(self):
+        return self.representation
+
+    def as_string(self):
+        return self.__str__()

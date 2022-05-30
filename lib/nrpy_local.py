@@ -121,22 +121,6 @@ from types import SimpleNamespace
 
 #        return cls(name=name, parameters=parameters)
 
-#@dataclass
-#class SpatialDimension:
-#    parameter: str = None
-#    value: int = None
-
-#    @classmethod
-#    def build(cls, parameter = 'grid:DIM', value = 3):
-#        self = cls(parameter, value)
-#        return self
-
-#    @property
-#    def dim(self):
-#        nrpy.par.set_parval_from_str(self.parameter, self.value)
-#        dim = nrpy.par.parval_from_str(self.parameter)
-#        return dim
-
 #class CoordSystemVariant(Enum):
 #    SPHERICAL = auto()
 #    SINHSPHERICAL = auto()
