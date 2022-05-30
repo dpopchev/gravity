@@ -5,3 +5,4 @@ venv/
 env/
 *~
 *default*
+.pytest_cache
