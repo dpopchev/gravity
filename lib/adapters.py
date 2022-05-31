@@ -195,3 +195,15 @@ class CcodePrototypeArgument:
 
     def __str__(self):
         return f'{"&"*self.address_order}{self.name}'
+
+@dataclass
+class CcodePrototype:
+    name: str = None
+    arguments: Any = None
+
+    def as_string(self):
+        return self.__str__()
+
+    def __str__(self):
+        arguments = ', '.join((str(a) for a in self.arguments))
+        return f'{self.name}({arguments});'
