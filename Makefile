@@ -1,7 +1,7 @@
 # set preferred shell
 SHELL := /usr/bin/env bash
 PYPATHLIB := PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}./lib:../nrpytutorial"
-INTPR := $(PYPATHLIB) python3-latest
+INTPR := $(PYPATHLIB) python3.7
 
 ## -----------------------------------------------------------------------------
 ## Makefile to rule a python project. It is written in GNU Make and expects bash.
