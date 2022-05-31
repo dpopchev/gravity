@@ -1,7 +1,7 @@
 # set preferred shell
 SHELL := /usr/bin/env bash
 PYPATHLIB := PYTHONPATH="${PYTHONPATH:+${PYTHONPATH}:}./lib:../nrpytutorial"
-INTPR := $(PYPATHLIB) python3
+INTPR := $(PYPATHLIB) python3-latest
 
 ## -----------------------------------------------------------------------------
 ## Makefile to rule a python project. It is written in GNU Make and expects bash.
@@ -51,11 +51,8 @@ PYFILES_MOD_DUMMIES_COMPILE := $(addprefix $(COMPILE_DUMMIES_DIR)/,$(PYFILES:%=%
 LINT_DUMMIES_DIR := $(DUMMIES_DIR)/lint
 PYFILES_MOD_DUMMIES_LINT := $(addprefix $(LINT_DUMMIES_DIR)/,$(LINTFILES:%=%.mod))
 
-PYREVERSE_DUMMIES_DIR := $(DUMMIES_DIR)/pyreverse
-PYFILES_MOD_DUMMIES_PYREVERSE := $(addprefix $(PYREVERSE_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
-
 FORMAT_DUMMIES_DIR := $(DUMMIES_DIR)/format
-PYFILES_MOD_DUMMIES_FORMAT := $(addprefix $(FORMAT_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
+PYFILES_MOD_DUMMIES_FORMAT := $(addprefix $(FORMAT_DUMMIES_DIR)/,$(LINTFILES:%=%.mod))
 
 UNITTEST_DUMMIES_DIR := $(DUMMIES_DIR)/unittest
 PYFILES_MOD_DUMMIES_UNITTESTS := $(addprefix $(UNITTEST_DUMMIES_DIR)/,$(PYFILES:%=%.mod))
@@ -94,9 +91,9 @@ clean_compile:
 	@rm --recursive --force $(DUMMIES_DIR)/compile
 
 .PHONY: lint ## pep8 compatibility check for specific FILE or all modified ones
-LINT = $(INTPR) -m pylint $(1)
+LINT = $(INTPR) -m pylint --fail-under=7.5 $(1)
 ifdef IS_BB_PIPELINE
-	LINT = $(INTPR) -m pylint --output-format=pylint_junit.JUnitReporter $(1) > $(call BB_JUNIT_DIR,lint)/$(call BB_JUNIT_XML,$(1))
+	LINT = $(INTPR) -m pylint --fail-under=7.5 --output-format=pylint_junit.JUnitReporter $(1) > $(call BB_JUNIT_DIR,lint)/$(call BB_JUNIT_XML,$(1))
 endif
 $(DUMMIES_DIR)/lint/%.mod: % | $(DUMMIES_DIR)
 	@$(MKDIR) $(dir $@)
@@ -110,19 +107,11 @@ lint: $(PYFILES_MOD_DUMMIES_LINT)
 clean_lint:
 	@rm --recursive --force $(DUMMIES_DIR)/lint
 
-.PHONY: pyreverse ## pep8 compatibility check for specific FILE or all modified ones
-PYREVERSE = $(PYPATHLIB) pyreverse -ASmy -o png $(1)
-$(DUMMIES_DIR)/pyreverse/%.mod: % | $(DUMMIES_DIR)
-	@$(MKDIR) $(dir $@)
-	@$(call PRINT_INFO,pyreverse,$<)
-	@$(call PYREVERSE,$<)
-	@touch $@
-
-pyreverse: $(PYFILES_MOD_DUMMIES_PYREVERSE)
-
-.PHONY: clean_pyreverse
-clean_pyreverse:
-	@rm --recursive --force $(DUMMIES_DIR)/pyreverse
+.PHONY: masteruml ## pyreverse to generate master uml diagram
+masteruml:
+	@touch $(LIB_DIR)/__init__.py $(SRC_DIR)/__init__.py
+	@$(PYPATHLIB) pyreverse $(LIB_DIR)/ $(SRC_DIR)/ -o png -p $@
+	@rm -f $(LIB_DIR)/__init__.py $(SRC_DIR)/__init__.py
 
 .PHONY: format ## attempt to auto fix pep8 violations on a FILE or all modified ones
 FORMAT = $(PYPATHLIB) autopep8 --in-place --aggressive --aggressive --hang-closing $(1)
@@ -226,11 +215,29 @@ doctest: $(PYFILES_MOD_DUMMIES_DOCTESTS)
 clean_doctest:
 	@rm --recursive --force $(DUMMIES_DIR)/doctest
 
+COVERAGE_PATHS = --cov=src --cov=lib
+COVERAGE_TESTS = $(TESTS_DIR)
+COVERAGE_PARAMS := --cov-branch --cov-fail-under=75 --cov-report=term
+ifdef FILE
+	COVERAGE_PATHS = --cov=$(dir $(FILE))
+	COVERAGE_TESTS = $(call EXTRACT_TESTS_PARENT_DIR,$(FILE))
+	COVERAGE_PARAMS := $(subst term,html,$(COVERAGE_PARAMS))
+endif
+
+COVERAGE = $(PYTEST) $(COVERAGE_PATHS) $(COVERAGE_PARAMS) $(COVERAGE_TESTS)
+.PHONY: coverage ## evaluate test coverage
+coverage: clean_coverage
+	@$(COVERAGE)
+
+.PHONY: clean_coverage
+clean_coverage:
+	@rm --force --recursive .coverage htmlcov/
+
 .PHONY: test ## execute both docttests and unittests
-test: doctest unittest
+test: doctest unittest coverage
 
 .PHONY: clean_test
-clean_test: clean_doctest clean_unittest
+clean_test: clean_doctest clean_unittest clean_coverage
 
 PIP := $(INTPR) -m pip
 PIP_INSTALL = $(PIP) install $1 > /dev/null
@@ -471,4 +478,11 @@ sample: $(TEMPLATE_TARGETS) | $(GIT)
 #~              - mkdir --parents test-results/unittest
 #~              - export IS_BB_PIPELINE=1
 #~              - make -k unittest
+#~        - step:
+#~            name: Coverage
+#~            script:
+#~              - make requirements
+#~              - mkdir --parents test-results/unittest
+#~              - export IS_BB_PIPELINE=1
+#~              - make -k coverage
 #~ }}}
