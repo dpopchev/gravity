@@ -182,5 +182,5 @@ class NumericalIntegration:
 
     @property
     def rk_order(self):
-        entry = nrpy.Butcher_dict[self.name.as_string()]
-        return entry[1]
+        _, entry = nrpy.Butcher_dict[self.name.as_string()]
+        return entry

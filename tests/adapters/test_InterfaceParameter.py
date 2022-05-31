@@ -10,13 +10,11 @@ class TestEmptyConstruction:
 
     @pytest.fixture
     def set_parval_spy(self, mocker):
-        with mocker.patch('nrpy_local.par.set_parval_from_str') as spy:
-            yield spy
+        mocker.patch('nrpy_local.par.set_parval_from_str')
 
     @pytest.fixture
     def parval_from_spy(self, mocker):
-        with mocker.patch('nrpy_local.par.parval_from_str') as spy:
-            yield spy
+        mocker.patch('nrpy_local.par.parval_from_str')
 
     @pytest.fixture
     def interface_parameter(self, set_parval_spy, parval_from_spy):
@@ -50,13 +48,11 @@ class TestBuildFactoryMethod:
 
     @pytest.fixture
     def set_parval_spy(self, mocker):
-        with mocker.patch('nrpy_local.par.set_parval_from_str') as spy:
-            yield spy
+        mocker.patch('nrpy_local.par.set_parval_from_str')
 
     @pytest.fixture
     def parval_from_spy(self, mocker):
-        with mocker.patch('nrpy_local.par.parval_from_str', return_value=self.TC_REPRESENTATION) as spy:
-            yield spy
+        mocker.patch('nrpy_local.par.parval_from_str', return_value=self.TC_REPRESENTATION)
 
     @pytest.fixture
     def interface_parameter(self, set_parval_spy, parval_from_spy):
