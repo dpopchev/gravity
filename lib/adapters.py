@@ -184,3 +184,14 @@ class NumericalIntegration:
     def rk_order(self):
         _, entry = nrpy.Butcher_dict[self.name.as_string()]
         return entry
+
+@dataclass
+class CcodePrototypeArgument:
+    name: str = None
+    address_order: int = None
+
+    def as_string(self):
+        return self.__str__()
+
+    def __str__(self):
+        return f'{"&"*self.address_order}{self.name}'
