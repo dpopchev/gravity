@@ -2,13 +2,23 @@ import os
 import pytest
 from adapters import NumericalIntegration, IntegratorVariant
 from collections import namedtuple
+from unittest import mock
 
 Stub = namedtuple('Stub', 'name fd_order real cfl_factor lapse_condition shift_condition')
 
 class TestBuildFactoryMethod:
 
     @pytest.fixture
-    def integrator(self):
+    def expected_rk_order(self):
+        return 'Butcher_dict_call'
+
+    @pytest.fixture
+    def butcher_dict_stub(self, expected_rk_order, expected_attrs):
+        with mock.patch.dict('nrpy_local.Butcher_dict', {str(expected_attrs.name): (None, expected_rk_order)}) as m:
+            yield m
+
+    @pytest.fixture
+    def integrator(self, butcher_dict_stub):
         _integrator = NumericalIntegration.build()
         return _integrator
 
@@ -46,6 +56,11 @@ class TestBuildFactoryMethod:
         attr = 'shift_condition'
         actual, expected = map(lambda _: getattr(_, attr), (integrator, expected_attrs))
         assert actual == expected
+
+    def test_rk_roder_attr(self, integrator, expected_rk_order):
+        attr = 'rk_order'
+        actual = getattr(integrator, attr)
+        assert actual == expected_rk_order
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
