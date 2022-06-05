@@ -207,3 +207,14 @@ class CcodePrototype:
     def __str__(self):
         arguments = ', '.join((str(a) for a in self.arguments))
         return f'{self.name}({arguments});'
+
+@dataclass
+class NrpyAttrWrapper:
+    name: str = None
+    callback: Any = None
+    args: Any = None
+    kwargs: Any = None
+
+    def doit(self):
+        result = self.callback(*self.args, **self.kwargs)
+        return result
