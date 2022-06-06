@@ -206,7 +206,7 @@ class CcodePrototype:
 
     def __str__(self):
         arguments = ', '.join((str(a) for a in self.arguments))
-        return f'{self.name}({arguments});'
+        return f'{self.name}({arguments}); // DPythonMark'
 
 @dataclass
 class NrpyAttrWrapper:
