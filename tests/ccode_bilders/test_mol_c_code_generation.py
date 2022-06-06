@@ -1,101 +1,70 @@
 import pytest
+from unittest import mock
 
-from timestepping_code import build_moltimestepping_c_code_generation
+from ccode_builders import build_moltimestepping_c_code_generation
+
 
 class TestDefaultBuilder:
 
     @pytest.fixture
-    def numerical_integration(self, mocker):
-        _numerical_integration = mocker.Mock()
-        _numerical_integration.name = 'IntegrationMethodName'
-        return _numerical_integration
-
-    @pytest.fixture
-    def ccodes_dir(self, mocker):
-        _ccodes_dir = mocker.Mock()
-        _ccodes_dir.make_under_root = mocker.Mock(return_value='MoLtimestepping/')
+    def ccodes_dir(self):
+        _ccodes_dir = mock.Mock()
+        _ccodes_dir.make_under_root = mock.Mock(return_value='make_under_root')
         return _ccodes_dir
 
     @pytest.fixture
-    def builder(self):
-        return build_moltimestepping_c_code_generation
+    def numerical_integration(self):
+        _numerical_integration = mock.Mock()
+        _numerical_integration.rk_method = 'rk_method'
+        return _numerical_integration
 
     @pytest.fixture
-    def product(self, builder):
-        result = builder()
-        return result
+    def builder(self, ccodes_dir, numerical_integration):
+
+        def _builder():
+            build_moltimestepping_c_code_generation(ccodes_dir, numerical_integration)
+            return
+
+        return _builder
 
     @pytest.fixture
-    def name(self):
-        return 'moltimestepping_c_code_generation'
+    def c_code_generation(self):
+        with mock.patch('nrpy_local.MoL.MoL_C_Code_Generation') as m:
+            m.return_value = 0
+            yield m
 
     @pytest.fixture
-    def args(self):
-        return ()
+    def cmd_mkdir(self):
+        with mock.patch('nrpy_local.cmd.mkdir') as m:
+            yield m
 
     @pytest.fixture
-    def rhs_string(self):
-        return "\n".join((
-            '// DP mark begin',
-            'Ricci_eval(&rfmstruct, &params, RK_INPUT_GFS, auxevol_gfs);',
-            'rhs_eval(&rfmstruct, &params, auxevol_gfs, RK_INPUT_GFS, RK_OUTPUT_GFS);',
-            '// DP mark end',
-        ))
-    @pytest.fixture
-    def post_rhs_string(self):
-        return "\n".join((
-            '// DP mark begin',
-            'apply_bcs_curvilinear(&params, &bcstruct, NUM_EVOL_GFS, evol_gf_parity, RK_OUTPUT_GFS);',
-            'enforce_detgammahat_constraint(&rfmstruct, &params,RK_OUTPUT_GFS);',
-            '// DP mark end',
-        ))
+    def c_code_generation_parameters(self, ccodes_dir, numerical_integration):
+        args = (numerical_integration.rk_method, )
 
-    @pytest.fixture
-    def outdir(self):
-        return 'some/dir/path'
-
-    @pytest.fixture
-    def kwargs(self, rhs_string, post_rhs_string, outdir):
-        return {
-            'RHS_string': rhs_string,
-            'post_RHS_string': post_rhs_string,
-            'outdir': outdir
+        kwargs = {
+            'RHS_string': "\n".join((
+                'Ricci_eval(&rfmstruct, &params, RK_INPUT_GFS, auxevol_gfs); // DPythonMark',
+                'rhs_eval(&rfmstruct, &params, auxevol_gfs, RK_INPUT_GFS, RK_OUTPUT_GFS); // DPythonMark',
+            )),
+            'post_RHS_string': "\n".join((
+                'apply_bcs_curvilinear(&params, &bcstruct, NUM_EVOL_GFS, evol_gf_parity, RK_OUTPUT_GFS); // DPythonMark',
+                'enforce_detgammahat_constraint(&rfmstruct, &params, RK_OUTPUT_GFS); // DPythonMark'
+            )),
+            'outdir': ccodes_dir.make_under_root()
         }
+        return args, kwargs
 
-    @pytest.fixture
-    def callback(self, mocker):
-        mocker.patch('nrpy_local.MoLtimestepping.C_Code_Generation')
+    def test_c_code_generation_called(self, builder, c_code_generation,
+                                      c_code_generation_parameters):
+        builder()
+        args, kwargs = c_code_generation_parameters
+        c_code_generation.assert_called_once_with(*args, **kwargs)
 
-    class TestBuilderProduct:
-
-        def test_name_attr(self, product, name):
-            attr = 'name'
-            actual, expected = getattr(product, attr), name
-            assert actual == expected
-
-        def test_args_attr(self, product, args):
-            attr = 'args'
-            actual, expected = getattr(product, attr), args
-            assert actual == expected
-
-        def test_kwargs_attr(self, product, kwargs):
-            attr = 'kwargs'
-            actual, expected = getattr(product, attr), kwargs
-            assert actual == expected
-
-        def test_callback_attr(self, product, callback):
-            attr = 'callback'
-            actual, expected = getattr(product, attr), callback
-            assert actual is expected
-
-        def test_doit_method_called_once(self, product, callback):
-            product.doit()
-            callback.assert_called_once()
-
-        def test_doit_method_arguments(self, product, callback, args, kwargs):
-            product.doit()
-            callback.assert_called_with(*args, **kwargs)
-
+    def test_cmd_mkdir_called(self, builder, c_code_generation, ccodes_dir):
+        builder()
+        hardcoded_destination = 'MoLtimestepping'
+        ccodes_dir.make_under_root.assert_called_once_with(hardcoded_destination)
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, '-vv'])

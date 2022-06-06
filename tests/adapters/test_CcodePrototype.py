@@ -7,7 +7,7 @@ CcodePrototypeStub = namedtuple('CcodePrototype', 'name arguments as_string')
 
 class TestZeroAddressArgument:
     TESTCASE_ARGUMENTS = ('&rfmstruct', '&params', 'RK_INPUT_GFS', 'auxevol_gfs')
-    TESTCASE_EXPECTED = 'Ricci_eval(&rfmstruct, &params, RK_INPUT_GFS, auxevol_gfs);'
+    TESTCASE_EXPECTED = 'Ricci_eval(&rfmstruct, &params, RK_INPUT_GFS, auxevol_gfs); // DPythonMark'
     TESTCASE = CcodePrototypeStub('Ricci_eval', TESTCASE_ARGUMENTS, TESTCASE_EXPECTED)
 
     @pytest.fixture

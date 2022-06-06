@@ -1,5 +1,5 @@
 import adapters
-import local_nrpy as nrpy
+import nrpy_local as nrpy
 
 def build_timestepping(ccodes_dir, numerical_integration):
     rfmstruct = adapters.CcodePrototypeArgument('rfmstruct', 1)

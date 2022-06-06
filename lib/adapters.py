@@ -188,7 +188,7 @@ class NumericalIntegration:
 @dataclass
 class CcodePrototypeArgument:
     name: str = None
-    address_order: int = None
+    address_order: int = 0
 
     def as_string(self):
         return self.__str__()
