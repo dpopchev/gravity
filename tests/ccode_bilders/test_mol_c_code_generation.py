@@ -49,10 +49,12 @@ class TestDefaultBuilder:
     @pytest.fixture
     def c_code_generation(self):
         with mock.patch('nrpy_local.MoL.MoL_C_Code_Generation') as m:
+            m.__module__ = 'MoLtimestepping.C_Code_Generation'
+            m.__name__ = 'MoL_C_Code_Generation'
             yield m
 
     @pytest.fixture
-    def timestepping_ccode_generator(self, ccodes_dir, numerical_integration):
+    def timestepping_ccode_generator(self, ccodes_dir, numerical_integration, c_code_generation):
         _timestepping_ccode_generator = build_timestepping_ccode_generator(ccodes_dir, numerical_integration)
         return _timestepping_ccode_generator
 
@@ -80,13 +82,15 @@ class TestDefaultBuilder:
     class TestDoitMethod:
         
         @pytest.fixture
-        def doit(self, timestepping_ccode_generator, c_code_generation, ccodes_dir, numerical_integration, cmd_mkdir):
+        def doit(self, timestepping_ccode_generator):
             timestepping_ccode_generator.doit()
 
-    def test_cmd_mkdir_called(self, builder, c_code_generation, ccodes_dir):
-        builder()
-        hardcoded_destination = 'MoLtimestepping'
-        ccodes_dir.make_under_root.assert_called_once_with(hardcoded_destination)
+        def test_make_under_root(self, doit, ccodes_dir):
+            expected_destination = 'MoLtimestepping'
+            ccodes_dir.make_under_root.assert_called_once_with(expected_destination)
+
+        def test_callback_parameters(self, doit, c_code_generation, stub):
+            c_code_generation.assert_called_once_with(*stub.args, **stub.kwargs)
 
 if __name__ == '__main__':
-    pytest.main([__file__, '-vv'])
+    pytest.main([__file__, '-v'])
