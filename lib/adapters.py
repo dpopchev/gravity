@@ -27,9 +27,12 @@ class CcodesDir:
     def make_outdir(self):
         nrpy.cmd.mkdir(self.outdir)
 
-    def make_under_root(self, destination):
+    def make_under_root(self, destination, is_dir=True):
         _destination = os.path.join(self.root, destination)
-        nrpy.cmd.mkdir(_destination)
+
+        if is_dir:
+            nrpy.cmd.mkdir(_destination)
+
         return _destination
 
 @dataclass
