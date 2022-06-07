@@ -1,8 +1,11 @@
 import pytest
 from unittest import mock
 
-from ccode_builders import build_moltimestepping_c_code_generation
+from ccode_builders import build_timestepping_ccode_generator
+from collections import namedtuple
 
+TimesteppingCcodeGeneratorStub = namedtuple('TimesteppingCcodeGeneratorStub',
+                                            'name callback args kwargs')
 
 class TestDefaultBuilder:
 
@@ -19,29 +22,15 @@ class TestDefaultBuilder:
         return _numerical_integration
 
     @pytest.fixture
-    def builder(self, ccodes_dir, numerical_integration):
-
-        def _builder():
-            build_moltimestepping_c_code_generation(ccodes_dir, numerical_integration)
-            return
-
-        return _builder
-
-    @pytest.fixture
-    def c_code_generation(self):
-        with mock.patch('nrpy_local.MoL.MoL_C_Code_Generation') as m:
-            m.return_value = 0
-            yield m
-
-    @pytest.fixture
     def cmd_mkdir(self):
         with mock.patch('nrpy_local.cmd.mkdir') as m:
             yield m
 
     @pytest.fixture
-    def c_code_generation_parameters(self, ccodes_dir, numerical_integration):
+    def stub(self, ccodes_dir,numerical_integration):
+        name = 'Timestepping Ccode Generator'
+        callback = 'MoLtimestepping.C_Code_Generation.MoL_C_Code_Generation'
         args = (numerical_integration.rk_method, )
-
         kwargs = {
             'RHS_string': "\n".join((
                 'Ricci_eval(&rfmstruct, &params, RK_INPUT_GFS, auxevol_gfs); // DPythonMark',
@@ -53,13 +42,46 @@ class TestDefaultBuilder:
             )),
             'outdir': ccodes_dir.make_under_root()
         }
-        return args, kwargs
 
-    def test_c_code_generation_called(self, builder, c_code_generation,
-                                      c_code_generation_parameters):
-        builder()
-        args, kwargs = c_code_generation_parameters
-        c_code_generation.assert_called_once_with(*args, **kwargs)
+        _expected = TimesteppingCcodeGeneratorStub(name, callback, args, kwargs)
+        return _expected
+
+    @pytest.fixture
+    def c_code_generation(self):
+        with mock.patch('nrpy_local.MoL.MoL_C_Code_Generation') as m:
+            yield m
+
+    @pytest.fixture
+    def timestepping_ccode_generator(self, ccodes_dir, numerical_integration):
+        _timestepping_ccode_generator = build_timestepping_ccode_generator(ccodes_dir, numerical_integration)
+        return _timestepping_ccode_generator
+
+    def test_name_attr(self, timestepping_ccode_generator, stub):
+        attr = 'name'
+        actual, expected = (getattr(_, attr) for _ in (timestepping_ccode_generator, stub))
+        assert actual == expected
+
+    def test_callback_attr(self, timestepping_ccode_generator, stub):
+        attr = 'callback'
+        actual, expected = (getattr(_, attr) for _ in (timestepping_ccode_generator, stub))
+        actual = '.'.join((actual.__module__, actual.__name__))
+        assert actual == expected
+
+    def test_args_attr(self, timestepping_ccode_generator, stub):
+        attr = 'args'
+        actual, expected = (getattr(_, attr) for _ in (timestepping_ccode_generator, stub))
+        assert actual == expected
+
+    def test_kwargs_attr(self, timestepping_ccode_generator, stub):
+        attr = 'kwargs'
+        actual, expected = (getattr(_, attr) for _ in (timestepping_ccode_generator, stub))
+        assert actual == expected
+
+    class TestDoitMethod:
+        
+        @pytest.fixture
+        def doit(self, timestepping_ccode_generator, c_code_generation, ccodes_dir, numerical_integration, cmd_mkdir):
+            timestepping_ccode_generator.doit()
 
     def test_cmd_mkdir_called(self, builder, c_code_generation, ccodes_dir):
         builder()

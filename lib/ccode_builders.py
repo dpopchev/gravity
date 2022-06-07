@@ -1,6 +1,6 @@
 import nrpy_local as nrpy
 
-from adapters import CcodePrototypeArgument, CcodePrototype
+from adapters import CcodePrototypeArgument, CcodePrototype, NrpyAttrWrapper
 
 def build_rhs_string():
     funcname = 'Ricci_eval'
@@ -47,14 +47,19 @@ def build_post_rhs_string():
     joined = '\n'.join((str(_) for _ in (apply_bcs_curvilinear, enforce_detgammahat_constraint )))
     return joined
 
-def build_moltimestepping_c_code_generation(ccodes_dir, numerical_integration,
+def build_timestepping_ccode_generator(ccodes_dir, numerical_integration,
                                             destination='MoLtimestepping'):
     _destination = ccodes_dir.make_under_root(destination)
+    args = (numerical_integration.rk_method, )
     parameters = {
         'RHS_string': build_rhs_string(),
         'post_RHS_string': build_post_rhs_string(),
         'outdir': _destination
     }
-    nrpy.MoL.MoL_C_Code_Generation(numerical_integration.rk_method, **parameters)
-
-    return
+    timestepping_ccode_generator = NrpyAttrWrapper(
+        name = 'Timestepping Ccode Generator',
+        callback = nrpy.MoL.MoL_C_Code_Generation,
+        args = args,
+        kwargs = parameters
+    )
+    return timestepping_ccode_generator
