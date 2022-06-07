@@ -35,6 +35,14 @@ class CcodesDir:
 
         return _destination
 
+    def make_under_outdir(self, destination, is_dir=True):
+        _destination = os.path.join(self.outdir, destination)
+
+        if is_dir:
+            nrpy.cmd.mkdir(_destination)
+
+        return _destination
+
 @dataclass
 class InterfaceParameter:
     parameter: str = None
