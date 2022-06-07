@@ -18,7 +18,7 @@ def build():
 
     simd_src = os.path.join('../nrpytutorial/SIMD/', 'SIMD_intrinsics.h')
     simd_dst = ccodes_dir.make_under_root('SIMD')
-    nrpy.shutil.copy(simd_src,simd_dst))
+    nrpy.shutil.copy(simd_src,simd_dst)
 
     indexedexp = adapters.InterfaceParameter.build("indexedexp::symmetry_axes", "12")
 
