@@ -1,7 +1,7 @@
 import pytest
 from unittest import mock
 
-from ccode_builders import build_scalar_field_initial_data_ccode_generator
+from ccode_builders import build_scalar_field_initial_data_ccode_builder
 from collections import namedtuple
 
 ScalarFieldInitDataStub = namedtuple('ScalarFieldInitDataStub',
