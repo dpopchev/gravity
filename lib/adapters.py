@@ -229,3 +229,32 @@ class NrpyAttrWrapper:
     def doit(self):
         result = self.callback(*self.args, **self.kwargs)
         return result
+
+class ScalarFieldInitialDataFamily(Enum):
+    GAUSSIAN_PULSE = auto()
+    GAUSSIAN_PULSEV2 = auto()
+    TANH_PULSE = auto()
+
+    @classmethod
+    def pick(cls, candidate):
+        _candidate = candidate.strip()
+        _candidate = _candidate.upper()
+
+        members = cls.__members__.keys()
+        matches = (m for m in members if _candidate == m)
+        match = next(matches, None)
+
+        if match is None:
+            raise ValueError(f'Coordinate system {_candidate} candidate not found')
+
+        return cls.__members__[match]
+
+    @classmethod
+    def supported(cls):
+        nrpy_names = ['Gaussian_pulse', 'Gaussian_pulsev2', 'Tanh_pulse']
+        members = cls.__members__.keys()
+        return { member: nrpy_name for member, nrpy_name in zip(members, nrpy_names) }
+
+    def __str__(self):
+        supported = self.__class__.supported()
+        return supported[self.name]
