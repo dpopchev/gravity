@@ -1,45 +1,62 @@
 import os
 import pytest
 from adapters import CoordSystem, CoordSystemVariant
-from collections import namedtuple
 
-Stub = namedtuple('Stub', 'name domain_size sinh_width sinhv2_const_dr symtp_bscale')
+@pytest.fixture
+def make_mocked_coord_system(mocker):
+    def factory(**kwargs):
+        mocked = mocker.Mock()
+        mocked.name = kwargs.get('name', None)
+        mocked.domain_size = kwargs.get('domain_size', None)
+        mocked.sinh_width = kwargs.get('sinh_width', None)
+        mocked.sinhv2_const_dr = kwargs.get('sinhv2_const_dr', None)
+        mocked.symtp_bscale = kwargs.get('symtp_bscale', None)
 
-class TestBuildSphericalFactoryMethod:
+        return kwargs, mocked
+    return factory
+
+@pytest.fixture
+def spherical_coord_system(make_mocked_coord_system):
+    parameters, expected = make_mocked_coord_system(name=CoordSystemVariant.SPHERICAL, domain_size=32)
+    return parameters, expected
+
+class TestSphericalFactoryMethod:
 
     @pytest.fixture
-    def coord_system(self):
-        _coord_system = CoordSystem.build_spherical()
-        return _coord_system
+    def coord_system(self, spherical_coord_system):
+        parameters, expected = spherical_coord_system
+        _coord_system = CoordSystem.build_spherical(parameters['domain_size'])
+        return _coord_system, expected
 
-    @pytest.fixture
-    def expected_attrs(self):
-        stub =Stub(CoordSystemVariant.SPHERICAL, 32, None, None, None)
-        return stub
-
-    def test_name_attr(self, coord_system, expected_attrs):
+    def test_name_attr_type(self, coord_system):
+        actual, _ = coord_system
         attr = 'name'
-        actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
-        assert actual == expected
+        attr_value =getattr(actual, attr)
+        assert isinstance(attr_value, CoordSystemVariant)
 
-    def test_domain_size_attr(self, coord_system, expected_attrs):
+    def test_name_attr(self, coord_system):
+        attr = 'name'
+        actual, expected = (getattr(o, attr) for o in (coord_system))
+        assert actual is expected
+
+    def test_domain_size_attr(self, coord_system):
         attr = 'domain_size'
-        actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
+        actual, expected = (getattr(o, attr) for o in (coord_system))
         assert actual == expected
 
-    def test_sinh_width_attr(self, coord_system, expected_attrs):
+    def test_sinh_width_attr(self, coord_system):
         attr = 'sinh_width'
-        actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
+        actual, expected = (getattr(o, attr) for o in (coord_system))
         assert actual == expected
 
-    def test_sinhv2_const_dr_attr(self, coord_system, expected_attrs):
+    def test_sinhv2_const_dr_attr(self, coord_system):
         attr = 'sinhv2_const_dr'
-        actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
+        actual, expected = (getattr(o, attr) for o in (coord_system))
         assert actual == expected
 
-    def test_symtp_bscale_attr(self, coord_system, expected_attrs):
+    def test_symtp_bscale_attr(self, coord_system):
         attr = 'symtp_bscale'
-        actual, expected = map(lambda _: getattr(_, attr), (coord_system, expected_attrs))
+        actual, expected = (getattr(o, attr) for o in (coord_system))
         assert actual == expected
 
 if __name__ == '__main__':
