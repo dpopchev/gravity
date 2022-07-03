@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-# from nrpy import CodesDir, SpatialDimension, CoordSystem, Derivatives
-from nrpy import build_scalar_field_collapse
+import scalar_field_collapse
 
 if __name__ == '__main__':
-    build_scalar_field_collapse()
+    scalar_field_collapse.build()

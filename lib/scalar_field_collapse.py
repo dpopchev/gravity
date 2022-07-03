@@ -1,6 +1,9 @@
+import os
 import adapters
 import nrpy_local as nrpy
 from ccode_builders import build_timestepping_ccode_generator
+from ccode_builders import build_scalar_field_initial_data_ccode_generator
+from ccode_builders import build_param_funcs_basic_defines_scalar_field
 
 def build():
     ccodes_dir = adapters.CcodesDir.build()
@@ -22,5 +25,11 @@ def build():
 
     indexedexp = adapters.InterfaceParameter.build("indexedexp::symmetry_axes", "12")
 
-    find_timestep_header = adapters.make_under_root('find_timestep.h', is_dir=False)
-    rfm.out_timestep_func_to_file(find_timestep_header)
+    find_timestep_header = ccodes_dir.make_under_root('find_timestep.h', is_dir=False)
+    nrpy.rfm.out_timestep_func_to_file(find_timestep_header)
+
+    scalar_field_initial_data = build_scalar_field_initial_data_ccode_generator(ccodes_dir, coord_system)
+    scalar_field_initial_data.doit()
+
+    param_funcs_basic_defines_scalar_field = build_param_funcs_basic_defines_scalar_field(ccodes_dir)
+    param_funcs_basic_defines_scalar_field.doit()

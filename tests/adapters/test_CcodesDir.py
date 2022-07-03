@@ -16,8 +16,6 @@ def make_mocked_ccodes_dir(mocker, mkdir_spy):
         outdir = os.path.join(mocked.root,kwargs.get('outdir', None ) )
         mocked.outdir = outdir
 
-        other_mocks = { 'mkdir_spy': mkdir_spy }
-
         return kwargs, mocked
     return factory
 
