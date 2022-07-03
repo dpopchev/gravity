@@ -106,3 +106,18 @@ def build_param_funcs_basic_defines_scalar_field(ccodes_dir):
     )
 
     return param_funcs_basic_defines_scalar_field
+
+def build_converter_adm_bssn_init_data(ccodes_dir, coord_system):
+    name = 'C code convert adm to bssn init data'
+    callback = nrpy.AtoBnum.Convert_Spherical_or_Cartesian_ADM_to_BSSN_curvilinear
+    args = (str(coord_system.name), 'ID_scalarfield_ADM_quantities')
+    kwargs = {'Ccodesdir': ccodes_dir.root, 'loopopts': ''}
+
+    converter_adm_bssn_init_data = NrpyAttrWrapper(
+        name = name,
+        callback = callback,
+        args = args,
+        kwargs = kwargs
+    )
+
+    return converter_adm_bssn_init_data

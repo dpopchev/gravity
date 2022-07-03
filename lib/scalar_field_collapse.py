@@ -4,6 +4,7 @@ import nrpy_local as nrpy
 from ccode_builders import build_timestepping_ccode_generator
 from ccode_builders import build_scalar_field_initial_data_ccode_generator
 from ccode_builders import build_param_funcs_basic_defines_scalar_field
+from ccode_builders import build_converter_adm_bssn_init_data
 
 def build():
     ccodes_dir = adapters.CcodesDir.build()
@@ -33,3 +34,6 @@ def build():
 
     param_funcs_basic_defines_scalar_field = build_param_funcs_basic_defines_scalar_field(ccodes_dir)
     param_funcs_basic_defines_scalar_field.doit()
+
+    converter_adm_bssn_init_data = build_converter_adm_bssn_init_data(ccodes_dir, coord_system)
+    converter_adm_bssn_init_data.doit()
