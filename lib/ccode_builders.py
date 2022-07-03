@@ -63,3 +63,25 @@ def build_timestepping_ccode_generator(ccodes_dir, numerical_integration,
         kwargs = parameters
     )
     return timestepping_ccode_generator
+
+def build_scalar_field_initial_data_ccode_generator(ccodes_dir, coord_system,
+                                                    destination='SFID.txt'):
+    outputfilename  = ccodes_dir.make_under_outdir(destination, is_file=True)
+    id_family       = "Gaussian_pulse"
+    pulse_amplitude = 0.4
+    pulse_center    = 0
+    pulse_width     = 1
+    nr              = 30000
+    rmax            = coord_system.domain_size*1.1
+
+    name = 'Scalar Field Initial Data Ccode Generator'
+    callback = nrpy.sfid.ScalarField_InitialData
+
+    args = (outputfilename, id_family, pulse_amplitude, pulse_center,
+            pulse_width, nr, rmax)
+
+    scalar_field_init_data = NrpyAttrWrapper(
+        name = name,
+        args = args,
+    )
+    return scalar_field_init_data

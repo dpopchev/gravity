@@ -1,98 +1,72 @@
 import os
 import pytest
 from adapters import CcodesDir
-from collections import namedtuple
 from unittest import mock
 
-CcodesDirStub = namedtuple('CcodesDirStub',  'root outdir')
+@pytest.fixture
+def mkdir_spy():
+    with mock.patch('nrpy_local.cmd.mkdir') as _mkdir_spy:
+        yield _mkdir_spy
 
-class TestEmptyConstruction:
-    @pytest.fixture
-    def ccodes_dir(self):
-        _ccodes_dir = CcodesDir()
-        return _ccodes_dir
+@pytest.fixture
+def make_mocked_ccodes_dir(mocker, mkdir_spy):
+    def factory(**kwargs):
+        mocked = mocker.Mock()
+        mocked.root = kwargs.get('root', None )
+        outdir = os.path.join(mocked.root,kwargs.get('outdir', None ) )
+        mocked.outdir = outdir
 
-    @pytest.fixture
-    def expected(self):
-        _expected = CcodesDirStub(None, None)
-        return _expected
+        other_mocks = { 'mkdir_spy': mkdir_spy }
 
-    def test_root_attr(self, ccodes_dir, expected):
-        attr = 'root'
-        acutal, _expected = map(lambda _: getattr(_, attr), (ccodes_dir, expected))
-        assert acutal == _expected
+        return kwargs, mocked
+    return factory
 
-    def test_outdir_attr(self, ccodes_dir, expected):
-        attr = 'outdir'
-        acutal, _expected = map(lambda _: getattr(_, attr), (ccodes_dir, expected))
-        assert acutal == _expected
+@pytest.fixture
+def generic_ccodes_dir(make_mocked_ccodes_dir):
+    parameters, expected = make_mocked_ccodes_dir(root='ccodesdir_default',
+                                                  outdir='output')
+    return parameters, expected
 
 class TestBuildFactoryMethod:
-    @pytest.fixture
-    def mkdir_spy(self, mocker):
-        with mock.patch('nrpy_local.cmd.mkdir') as _mkdir_spy:
-            yield _mkdir_spy
 
     @pytest.fixture
-    def ccodes_dir(self, mkdir_spy):
-        _ccodes_dir = CcodesDir.build()
-        return _ccodes_dir
+    def ccodes_dir(self, generic_ccodes_dir):
+        parameters, expected = generic_ccodes_dir
+        _ccodes_dir = CcodesDir.build(**parameters)
+        return _ccodes_dir, expected
 
-    @pytest.fixture
-    def expected(self):
-        root = 'ccodesdir_default'
-        outdir = 'ccodesdir_default/output'
-        _expected = CcodesDirStub(root, outdir)
-        return _expected
-
-    def test_root_attr(self, ccodes_dir, expected):
+    def test_root_attr(self, ccodes_dir):
         attr = 'root'
-        acutal, _expected = map(lambda _: getattr(_, attr), (ccodes_dir, expected))
-        assert acutal == _expected
+        acutal, expected = (getattr(o, attr) for o in ccodes_dir)
+        assert acutal == expected
 
-    def test_outdir_attr(self, ccodes_dir, expected):
+    def test_outdir_attr(self, ccodes_dir):
         attr = 'outdir'
-        acutal, _expected = map(lambda _: getattr(_, attr), (ccodes_dir, expected))
-        assert acutal == _expected
+        acutal, expected = (getattr(o, attr) for o in ccodes_dir)
+        assert acutal == expected
 
-    def test_mkdir_called(self, ccodes_dir, expected, mkdir_spy):
-        calls = (mock.call(_) for _ in (expected.root, expected.outdir) )
+    def test_mkdir_called(self, mocker, ccodes_dir, mkdir_spy):
+        _ , expected  = ccodes_dir
+        calls = (mock.call(getattr(expected, o)) for o in ('root', 'outdir'))
         mkdir_spy.assert_has_calls(calls)
 
-class TestMakeUnderRootMethod:
-
-    new_dirname = 'newdir'
-
     @pytest.fixture
-    def mkdir_spy(self, mocker):
-        with mock.patch('nrpy_local.cmd.mkdir') as _mkdir_spy:
-            yield _mkdir_spy
+    def newdir_under_root(self, ccodes_dir):
+        _, expected = ccodes_dir
+        newdirname = 'newdir'
+        return newdirname, os.path.join(expected.root, newdirname)
 
-    @pytest.fixture
-    def ccodes_dir(self, mkdir_spy):
-        _ccodes_dir = CcodesDir.build()
-        return _ccodes_dir
+    def test_make_under_root_mthd_return(self, ccodes_dir, newdir_under_root):
+        _ccodes_dir, _ = ccodes_dir
+        newdirname, expected = newdir_under_root
+        actual = _ccodes_dir.make_under_root(newdirname)
+        assert actual == expected
 
-    @pytest.fixture
-    def expected_defaults(self):
-        root = 'ccodesdir_default'
-        outdir = 'ccodesdir_default/output'
-        _expected = CcodesDirStub(root, outdir)
-        return _expected
-
-    @pytest.fixture
-    def make_under_root(self, ccodes_dir, expected_defaults):
-        expected_new_dir = os.path.join(expected_defaults.root, self.new_dirname)
-        actual = ccodes_dir.make_under_root(self.new_dirname)
-        return actual
-
-    def test_make_under_root_return(self, make_under_root, expected_defaults ):
-        expected = os.path.join(expected_defaults.root, self.new_dirname)
-        assert make_under_root == expected
-
-    def test_make_under_root_mkdir_call(self, make_under_root, expected_defaults, mkdir_spy):
-        expected_call = os.path.join(expected_defaults.root, self.new_dirname)
-        mkdir_spy.assert_any_call(expected_call)
+    def test_make_under_root_mthd_mkdir_call(self, ccodes_dir, newdir_under_root, mkdir_spy):
+        _ccodes_dir, _ = ccodes_dir
+        newdirname, expected = newdir_under_root
+        _ = _ccodes_dir.make_under_root(newdirname)
+        mkdir_spy.assert_called_with(expected)
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
