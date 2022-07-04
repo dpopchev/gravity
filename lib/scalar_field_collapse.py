@@ -77,3 +77,9 @@ def build():
     # We use betaU as our upwinding control vector:
     nrpy.Bq.BSSN_basic_tensors()
     betaU = nrpy.Bq.betaU
+
+    enforce_detg_constraint_symb_expressions = nrpy.EGC.Enforce_Detgammahat_Constraint_symb_expressions()
+
+    # Next compute Ricci tensor
+    leave_ricci_symbolic = adapters.InterfaceParameter.build("BSSN.BSSN_quantities::LeaveRicciSymbolic","False")
+    nrpy.Bq.RicciBar__gammabarDD_dHatD__DGammaUDD__DGammaU()

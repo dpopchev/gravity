@@ -16,3 +16,4 @@ import ScalarField.ScalarField_RHSs as sfrhs
 import ScalarField.ScalarField_Tmunu as sfTmunu
 import BSSN.BSSN_stress_energy_source_terms as Bsest
 import BSSN.BSSN_quantities as Bq
+import BSSN.Enforce_Detgammahat_Constraint as EGC
