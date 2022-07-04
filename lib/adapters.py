@@ -62,6 +62,26 @@ class InterfaceParameter:
     def as_string(self):
         return self.__str__()
 
+@dataclass
+class InterfaceCparameter:
+    ctype: str = None
+    module: str = None
+    names: Any = None
+    default_values: Any = None
+    representation: Any = None
+
+    @classmethod
+    def build(cls, ctype, module, names, default_values):
+        self = cls(ctype, module, names, default_values)
+        self.representation = nrpy.par.Cparameters(ctype, module, names, default_values)
+        return self
+
+    def __str__(self):
+        return self.representation
+
+    def as_string(self):
+        return self.__str__()
+
 class CoordSystemVariant(Enum):
     SPHERICAL = auto()
     SINHSPHERICAL = auto()

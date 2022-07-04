@@ -91,3 +91,6 @@ def build():
     nrpy.bssncon.BSSN_constraints(add_T4UUmunu_source_terms=False)
     nrpy.Bsest.BSSN_source_terms_for_BSSN_constraints(scalar_field_contravariant_tmunu)
     nrpy.bssncon.H += nrpy.Bsest.sourceterm_H
+
+    # Add Kreiss-Oliger dissipation
+    diss_strength = adapters.InterfaceCparameter.build( "REAL", "ScalarFieldCollapse", ["diss_strength"], 0.1)
