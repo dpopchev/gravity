@@ -172,6 +172,22 @@ def build_ricci(ccodes_dir):
     print("Finished Ricci C codegen in.")
     return
 
+def build_hamiltonian(ccodes_dir):
+    print("Generating optimized C code for Hamiltonian constraint. May take a while, depending on CoordSystem.")
+    # Set up the C function for the Hamiltonian RHS
+    desc="Evaluate the Hamiltonian constraint"
+    name="Hamiltonian_constraint"
+    outfile_header = ccodes_dir.make_under_root(f'{name}.h', is_dir=False)
+    nrpy.outCfunction(
+        outfile  = outfile_header, desc=desc, name=name,
+        params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
+                      REAL *restrict in_gfs, REAL *restrict auxevol_gfs, REAL *restrict aux_gfs""",
+        body     = nrpy.fin.FD_outputC("returnstring",nrpy.lhrh(lhs=nrpy.gri.gfaccess("aux_gfs", "H"), rhs=nrpy.bssncon.H),
+                                  params="outCverbose=False"),
+        loopopts = "InteriorPoints,enable_rfm_precompute")
+    print("Finished Hamiltonian C codegen.")
+    return
+
 def build():
     ccodes_dir = adapters.CcodesDir.build()
     dim = adapters.InterfaceParameter.build('grid::DIM', 3)
@@ -210,5 +226,6 @@ def build():
     betaU = build_bssn_rhs_symbolic_expressions(ccodes_dir, numerical_integration, dim)
     build_bssn_plus_scalarfield_rhss(ccodes_dir, betaU)
     build_ricci(ccodes_dir)
+    build_hamiltonian(ccodes_dir)
 
     return
