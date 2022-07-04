@@ -5,6 +5,7 @@ from ccode_builders import build_timestepping_ccode_generator
 from ccode_builders import build_scalar_field_initial_data_ccode_generator
 from ccode_builders import build_param_funcs_basic_defines_scalar_field
 from ccode_builders import build_converter_adm_bssn_init_data
+from ccode_builders import build_scalar_field_collapse_playground_header
 
 def build_bssn_rhs_symbolic_expressions(ccodes_dir, numerical_integration, dim):
     print("Generating symbolic expressions for BSSN RHSs...")
@@ -257,5 +258,6 @@ def build():
     build_hamiltonian(ccodes_dir)
     build_cparamters_headers(ccodes_dir, coord_system)
     build_boundary_condition(ccodes_dir)
+    build_scalar_field_collapse_playground_header(ccodes_dir, numerical_integration)
 
     return

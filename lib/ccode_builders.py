@@ -121,3 +121,19 @@ def build_converter_adm_bssn_init_data(ccodes_dir, coord_system):
     )
 
     return converter_adm_bssn_init_data
+
+def build_scalar_field_collapse_playground_header(ccodes_dir, numerical_integration):
+    content = '\n'.join([
+    "// Part P0.a: Set the number of ghost cells, from NRPy+'s FD_CENTDERIVS_ORDER",
+    f'#define NGHOSTS {str(int(numerical_integration.fd_order/2)+1)}',
+    '// Part P0.b: Set the numerical precision (REAL) to double, ensuring all floating point',
+    '//            numbers are stored to at least ~16 significant digits',
+    f'#define REAL {numerical_integration.real}',
+    "// Part P0.c: Set the number of ghost cells, from NRPys FD_CENTDERIVS_ORDER",
+    f'REAL CFL_FACTOR = {str(numerical_integration.cfl_factor)}; // Set the CFL Factor. Can be overwritten at command line.\n'
+    ])
+
+    with open(ccodes_dir.make_under_root("ScalarFieldCollapse_Playground_REAL__NGHOSTS__CFL_FACTOR.h", is_dir=False), "w") as fh:
+        fh.write(content)
+
+    return
