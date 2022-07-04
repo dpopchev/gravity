@@ -188,6 +188,25 @@ def build_hamiltonian(ccodes_dir):
     print("Finished Hamiltonian C codegen.")
     return
 
+def build_cparamters_headers(ccodes_dir, coord_system):
+    nrpy.par.generate_Cparameters_Ccodes(ccodes_dir.root)
+    free_parameters_header = ccodes_dir.make_under_root("free_parameters.h", is_dir=False)
+    nrpy.rfm.out_default_free_parameters_for_rfm(
+        free_parameters_header,
+        coord_system.domain_size,
+        coord_system.sinh_width,
+        coord_system.sinhv2_const_dr,
+        coord_system.symtp_bscale
+    )
+    nrpy.rfm.set_Nxx_dxx_invdx_params__and__xx_h(ccodes_dir.root)
+
+    xx_to_cart_h = ccodes_dir.make_under_root("xx_to_Cart.h", is_dir=False)
+    nrpy.rfm.xx_to_Cart_h("xx_to_Cart","./set_Cparameters.h",xx_to_cart_h)
+
+    nrpy.par.generate_Cparameters_Ccodes(ccodes_dir.root)
+
+    return
+
 def build():
     ccodes_dir = adapters.CcodesDir.build()
     dim = adapters.InterfaceParameter.build('grid::DIM', 3)
@@ -227,5 +246,6 @@ def build():
     build_bssn_plus_scalarfield_rhss(ccodes_dir, betaU)
     build_ricci(ccodes_dir)
     build_hamiltonian(ccodes_dir)
+    build_cparamters_headers(ccodes_dir, coord_system)
 
     return
