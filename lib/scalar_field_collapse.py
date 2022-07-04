@@ -54,3 +54,6 @@ def build():
     rfm_precompute_Ccode_outdir = adapters.InterfaceParameter.build("reference_metric::rfm_precompute_Ccode_outdir", rfm_files)
     leave_ricci_symbolic = adapters.InterfaceParameter.build("BSSN.BSSN_quantities::LeaveRicciSymbolic","True")
     nrpy.rhs.BSSN_RHSs()
+
+    # Evaluate the Scalar Field RHSs
+    nrpy.sfrhs.ScalarField_RHSs()

@@ -11,3 +11,4 @@ import MoLtimestepping.C_Code_Generation as MoL
 import ScalarField.ScalarField_InitialData as sfid
 import BSSN.ADM_Numerical_Spherical_or_Cartesian_to_BSSNCurvilinear as AtoBnum
 import BSSN.BSSN_RHSs as rhs
+import ScalarField.ScalarField_RHSs as sfrhs
