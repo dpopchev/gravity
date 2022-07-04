@@ -83,3 +83,11 @@ def build():
     # Next compute Ricci tensor
     leave_ricci_symbolic = adapters.InterfaceParameter.build("BSSN.BSSN_quantities::LeaveRicciSymbolic","False")
     nrpy.Bq.RicciBar__gammabarDD_dHatD__DGammaUDD__DGammaU()
+
+    # Now register the Hamiltonian as a gridfunction.
+    H = nrpy.gri.register_gridfunctions("AUX","H")
+
+    # Then define the Hamiltonian constraint and output the optimized C code.
+    nrpy.bssncon.BSSN_constraints(add_T4UUmunu_source_terms=False)
+    nrpy.Bsest.BSSN_source_terms_for_BSSN_constraints(scalar_field_contravariant_tmunu)
+    nrpy.bssncon.H += nrpy.Bsest.sourceterm_H
