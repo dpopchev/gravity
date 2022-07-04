@@ -39,4 +39,14 @@ def build():
     converter_adm_bssn_init_data.doit()
 
     lapse_evolution_option = adapters.InterfaceParameter.build('BSSN.BSSN_gauge_RHSs::LapseEvolutionOption', numerical_integration.lapse_condition)
-    lapse_evolution_option = adapters.InterfaceParameter.build('BSSN.BSSN_gauge_RHSs::ShiftEvolutionOption', numerical_integration.shift_condition)
+    shift_evolution_option = adapters.InterfaceParameter.build('BSSN.BSSN_gauge_RHSs::ShiftEvolutionOption', numerical_integration.shift_condition)
+
+    print("Generating symbolic expressions for BSSN RHSs...")
+
+    # Enable rfm_precompute infrastructure, which results in
+    #   BSSN RHSs that are free of transcendental functions,
+    #   even in curvilinear coordinates, so long as
+    #   ConformalFactor is set to "W" (default).
+    enable_rfm_precompute = adapters.InterfaceParameter.build("reference_metric::enable_rfm_precompute","True")
+    rfm_files = ccodes_dir.make_under_root('rfm_files')
+    rfm_precompute_Ccode_outdir = adapters.InterfaceParameter.build("reference_metric::rfm_precompute_Ccode_outdir", rfm_files)
