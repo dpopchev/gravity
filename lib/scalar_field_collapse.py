@@ -49,4 +49,8 @@ def build():
     #   ConformalFactor is set to "W" (default).
     enable_rfm_precompute = adapters.InterfaceParameter.build("reference_metric::enable_rfm_precompute","True")
     rfm_files = ccodes_dir.make_under_root('rfm_files')
+
+    # Evaluate BSSN + BSSN gauge RHSs with rfm_precompute enabled:
     rfm_precompute_Ccode_outdir = adapters.InterfaceParameter.build("reference_metric::rfm_precompute_Ccode_outdir", rfm_files)
+    leave_ricci_symbolic = adapters.InterfaceParameter.build("BSSN.BSSN_quantities::LeaveRicciSymbolic","True")
+    nrpy.rhs.BSSN_RHSs()
