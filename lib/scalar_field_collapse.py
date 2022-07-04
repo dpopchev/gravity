@@ -7,6 +7,100 @@ from ccode_builders import build_param_funcs_basic_defines_scalar_field
 from ccode_builders import build_converter_adm_bssn_init_data
 from ccode_builders import build_scalar_field_collapse_playground_header
 from ccode_builders import build_scalar_field_collapse_playground_main
+import numpy as np
+from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import savefig
+import glob
+import sys
+
+def visualize_all(ccodes_dir):
+    globby = glob.glob(os.path.join(ccodes_dir.outdir,'out640-00*.txt'))
+    file_list = []
+    for x in sorted(globby):
+        file_list.append(x)
+
+    for filename in file_list:
+        fig = plt.figure(figsize=(8,6))
+        x,r,sf,sfM,alpha,cf,logH = np.loadtxt(filename).T #Transposed for easier unpacking
+
+        ax  = fig.add_subplot(321)
+        ax2 = fig.add_subplot(322)
+        ax3 = fig.add_subplot(323)
+        ax4 = fig.add_subplot(324)
+        ax5 = fig.add_subplot(325)
+
+        ax.set_title("Scalar field")
+        ax.set_ylabel(r"$\varphi(t,r)$")
+        ax.set_xlim(0,20)
+        ax.set_ylim(-0.6,0.6)
+        ax.plot(r,sf,'k-')
+        ax.grid()
+
+        ax2.set_title("Scalar field conjugate momentum")
+        ax2.set_ylabel(r"$\Pi(t,r)$")
+        ax2.set_xlim(0,20)
+        ax2.set_ylim(-1,1)
+        ax2.plot(r,sfM,'b-')
+        ax2.grid()
+
+        ax3.set_title("Lapse function")
+        ax3.set_ylabel(r"$\alpha(t,r)$")
+        ax3.set_xlim(0,20)
+        ax3.set_ylim(0,1.02)
+        ax3.plot(r,alpha,'r-')
+        ax3.grid()
+
+        ax4.set_title("Conformal factor")
+        ax4.set_xlabel(r"$r$")
+        ax4.set_ylabel(r"$W(t,r)$")
+        ax4.set_xlim(0,20)
+        ax4.set_ylim(0,1.02)
+        ax4.plot(r,cf,'g-',label=("$p = 0.043149493$"))
+        ax4.grid()
+
+        ax5.set_title("Hamiltonian constraint violation")
+        ax5.set_xlabel(r"$r$")
+        ax5.set_ylabel(r"$\mathcal{H}(t,r)$")
+        ax5.set_xlim(0,20)
+        ax5.set_ylim(-16,0)
+        ax5.plot(r,logH,'m-')
+        ax5.grid()
+
+        plt.tight_layout()
+        savefig(filename+".png",dpi=150)
+        plt.close(fig)
+        sys.stdout.write("%c[2K" % 27)
+        sys.stdout.write("Processing file "+filename+"\r")
+        sys.stdout.flush()
+
+def visualize_conv(ccodes_dir, numerical_integration):
+    os.chdir(ccodes_dir.outdir)
+
+    nrpy.cmd.delete_existing_files("out320*.txt")
+    nrpy.cmd.Execute("ScalarFieldCollapse_Playground", "320 2 2 "+str(numerical_integration.cfl_factor),"out320.txt")
+
+    os.chdir(os.path.join("..",".."))
+
+    outfig = os.path.join(ccodes_dir.outdir,"ScalarFieldCollapse_H_convergence.png")
+
+    fig = plt.figure()
+
+    r_640,H_640 = np.loadtxt(os.path.join(ccodes_dir.outdir,"out640.txt")).T
+    r_320,H_320 = np.loadtxt(os.path.join(ccodes_dir.outdir,"out320.txt")).T
+
+    plt.title("Plot demonstrating 4th order\nconvergence of constraint violations")
+    plt.xlabel(r"$r$")
+    plt.ylabel(r"$\log_{10}|\mathcal{H}|$")
+    plt.xlim(0,16)
+    plt.plot(r_640,H_640,label=r"$N_{r} = 640$")
+    plt.plot(r_320,H_320+4*np.log10(320.0/640.0),label=r"$N_{r} = 320$, mult by $(320/640)^{4}$")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig(outfig,dpi=150)
+    plt.close(fig)
+    Image(outfig)
 
 def build_bssn_rhs_symbolic_expressions(ccodes_dir, numerical_integration, dim):
     print("Generating symbolic expressions for BSSN RHSs...")
@@ -279,5 +373,8 @@ def build():
     nrpy.cmd.Execute("ScalarFieldCollapse_Playground", "640 2 2 "+str(numerical_integration.cfl_factor),"out640.txt")
     print('finish running')
     os.chdir(os.path.join("../../"))
+
+    visualize_all(ccodes_dir)
+    visualize_conv(ccodes_dir, numerical_integration)
 
     return
