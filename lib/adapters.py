@@ -118,10 +118,10 @@ class CoordSystemVariant(Enum):
 @dataclass
 class CoordSystem:
     name: CoordSystemVariant = None
-    domain_size: int = None
-    sinh_width: float = None
-    sinhv2_const_dr: float = None
-    symtp_bscale: float = None
+    domain_size: int = 32
+    sinh_width: float = 0.2
+    sinhv2_const_dr: float = 0.05
+    symtp_bscale: float = 0.5
 
     @classmethod
     def build_spherical(cls, domain_size=32):

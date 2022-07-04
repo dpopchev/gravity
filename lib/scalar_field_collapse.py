@@ -99,7 +99,7 @@ def build_bssn_rhs_symbolic_expressions(ccodes_dir, numerical_integration, dim):
     nrpy.rfm.ref_metric__hatted_quantities()
     print("Finished BSSN symbolic expressions")
 
-    return betaU
+    return betaU,enforce_detg_constraint_symb_expressions
 
 def build_bssn_plus_scalarfield_rhss(ccodes_dir, betaU):
     rfm_coord_system = nrpy.par.parval_from_str("reference_metric::CoordSystem")
@@ -253,13 +253,31 @@ def build():
     lapse_evolution_option = adapters.InterfaceParameter.build('BSSN.BSSN_gauge_RHSs::LapseEvolutionOption', numerical_integration.lapse_condition)
     shift_evolution_option = adapters.InterfaceParameter.build('BSSN.BSSN_gauge_RHSs::ShiftEvolutionOption', numerical_integration.shift_condition)
 
-    betaU = build_bssn_rhs_symbolic_expressions(ccodes_dir, numerical_integration, dim)
+    betaU, enforce_detg_constraint_symb_expressions = build_bssn_rhs_symbolic_expressions(ccodes_dir, numerical_integration, dim)
     build_bssn_plus_scalarfield_rhss(ccodes_dir, betaU)
     build_ricci(ccodes_dir)
     build_hamiltonian(ccodes_dir)
+
+    nrpy.EGC.output_Enforce_Detgammahat_Constraint_Ccode(ccodes_dir.root,exprs=enforce_detg_constraint_symb_expressions)
+
     build_cparamters_headers(ccodes_dir, coord_system)
     build_boundary_condition(ccodes_dir)
     build_scalar_field_collapse_playground_header(ccodes_dir, numerical_integration)
     build_scalar_field_collapse_playground_main(ccodes_dir)
+
+    print("Now compiling, should take ~10 seconds...")
+    mainc= ccodes_dir.make_under_root("ScalarFieldCollapse_Playground.c", is_dir=False)
+    outc = ccodes_dir.make_under_outdir("ScalarFieldCollapse_Playground", is_dir=False)
+    nrpy.cmd.C_compile(mainc, outc,compile_mode="optimized")
+    print('End compile')
+
+    os.chdir(ccodes_dir.outdir)
+    nrpy.cmd.delete_existing_files("out*.txt")
+    nrpy.cmd.delete_existing_files("out*.png")
+    print(os.getcwd())
+    print("Now running, should take ~20 seconds...")
+    nrpy.cmd.Execute("ScalarFieldCollapse_Playground", "640 2 2 "+str(numerical_integration.cfl_factor),"out640.txt")
+    print('finish running')
+    os.chdir(os.path.join("../../"))
 
     return
