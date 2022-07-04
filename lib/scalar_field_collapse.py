@@ -147,6 +147,31 @@ def build_bssn_plus_scalarfield_rhss(ccodes_dir, betaU):
     print("Finished BSSN_RHS C codegen")
     return
 
+def build_ricci(ccodes_dir):
+    rfm_coord_system = nrpy.par.parval_from_str("reference_metric::CoordSystem")
+    print(f"Generating C code for Ricci tensor in {rfm_coord_system} coordinates.")
+
+    desc="Evaluate the Ricci tensor"
+    name="Ricci_eval"
+    outfile_header = ccodes_dir.make_under_root(f'{name}.h', is_dir=False)
+    nrpy.outCfunction(
+        outfile  = outfile_header,
+        desc=desc,
+        name=name,
+        params   = """rfm_struct *restrict rfmstruct,const paramstruct *restrict params,
+                      const REAL *restrict in_gfs,REAL *restrict auxevol_gfs""",
+        body     = nrpy.fin.FD_outputC("returnstring",
+                                  [nrpy.lhrh(lhs=nrpy.gri.gfaccess("auxevol_gfs","RbarDD00"),rhs=nrpy.Bq.RbarDD[0][0]),
+                                   nrpy.lhrh(lhs=nrpy.gri.gfaccess("auxevol_gfs","RbarDD01"),rhs=nrpy.Bq.RbarDD[0][1]),
+                                   nrpy.lhrh(lhs=nrpy.gri.gfaccess("auxevol_gfs","RbarDD02"),rhs=nrpy.Bq.RbarDD[0][2]),
+                                   nrpy.lhrh(lhs=nrpy.gri.gfaccess("auxevol_gfs","RbarDD11"),rhs=nrpy.Bq.RbarDD[1][1]),
+                                   nrpy.lhrh(lhs=nrpy.gri.gfaccess("auxevol_gfs","RbarDD12"),rhs=nrpy.Bq.RbarDD[1][2]),
+                                   nrpy.lhrh(lhs=nrpy.gri.gfaccess("auxevol_gfs","RbarDD22"),rhs=nrpy.Bq.RbarDD[2][2])],
+                                   params="outCverbose=False,enable_SIMD=True"),
+        loopopts = "InteriorPoints,enable_SIMD,enable_rfm_precompute")
+    print("Finished Ricci C codegen in.")
+    return
+
 def build():
     ccodes_dir = adapters.CcodesDir.build()
     dim = adapters.InterfaceParameter.build('grid::DIM', 3)
@@ -184,5 +209,6 @@ def build():
 
     betaU = build_bssn_rhs_symbolic_expressions(ccodes_dir, numerical_integration, dim)
     build_bssn_plus_scalarfield_rhss(ccodes_dir, betaU)
+    build_ricci(ccodes_dir)
 
     return
