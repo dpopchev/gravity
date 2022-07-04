@@ -1,4 +1,6 @@
 import nrpy_local as nrpy
+import os
+import shutil
 
 from adapters import CcodePrototypeArgument, CcodePrototype, NrpyAttrWrapper
 
@@ -136,4 +138,11 @@ def build_scalar_field_collapse_playground_header(ccodes_dir, numerical_integrat
     with open(ccodes_dir.make_under_root("ScalarFieldCollapse_Playground_REAL__NGHOSTS__CFL_FACTOR.h", is_dir=False), "w") as fh:
         fh.write(content)
 
+    return
+
+def build_scalar_field_collapse_playground_main(ccodes_dir):
+    main_cfile_name = "ScalarFieldCollapse_Playground.c"
+    fpath = ccodes_dir.make_under_root(main_cfile_name, is_dir=False)
+    fsource = os.path.join('dat/', main_cfile_name)
+    shutil.copy(fsource, fpath)
     return
