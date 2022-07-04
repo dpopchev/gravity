@@ -65,12 +65,12 @@ def build():
 
     nrpy.Bsest.BSSN_source_terms_for_BSSN_RHSs(scalar_field_contravariant_tmunu)
     nrpy.rhs.trK_rhs += nrpy.Bsest.sourceterm_trK_rhs
-    for i in range(dim.value):
+    for i in range(dim.representation):
         # Needed for Gamma-driving shift RHSs:
         nrpy.rhs.Lambdabar_rhsU[i] += nrpy.Bsest.sourceterm_Lambdabar_rhsU[i]
         # Needed for BSSN RHSs:
         nrpy.rhs.lambda_rhsU[i]    += nrpy.Bsest.sourceterm_lambda_rhsU[i]
-        for j in range(dim.value):
+        for j in range(dim.representation):
             nrpy.rhs.a_rhsDD[i][j] += nrpy.Bsest.sourceterm_a_rhsDD[i][j]
 
     nrpy.gaugerhs.BSSN_gauge_RHSs()
@@ -94,3 +94,29 @@ def build():
 
     # Add Kreiss-Oliger dissipation
     diss_strength = adapters.InterfaceCparameter.build( "REAL", "ScalarFieldCollapse", ["diss_strength"], 0.1)
+
+    alpha_dKOD   = nrpy.ixp.declarerank1("alpha_dKOD")
+    cf_dKOD      = nrpy.ixp.declarerank1("cf_dKOD")
+    trK_dKOD     = nrpy.ixp.declarerank1("trK_dKOD")
+    sf_dKOD      = nrpy.ixp.declarerank1("sf_dKOD")
+    sfM_dKOD     = nrpy.ixp.declarerank1("sfM_dKOD")
+    betU_dKOD    = nrpy.ixp.declarerank2("betU_dKOD","nosym")
+    vetU_dKOD    = nrpy.ixp.declarerank2("vetU_dKOD","nosym")
+    lambdaU_dKOD = nrpy.ixp.declarerank2("lambdaU_dKOD","nosym")
+    aDD_dKOD     = nrpy.ixp.declarerank3("aDD_dKOD","sym01")
+    hDD_dKOD     = nrpy.ixp.declarerank3("hDD_dKOD","sym01")
+
+    for k in range(3):
+        nrpy.gaugerhs.alpha_rhs += diss_strength.representation*alpha_dKOD[k]*nrpy.rfm.ReU[k]
+        nrpy.rhs.cf_rhs         += diss_strength.representation*   cf_dKOD[k]*nrpy.rfm.ReU[k]
+        nrpy.rhs.trK_rhs        += diss_strength.representation*  trK_dKOD[k]*nrpy.rfm.ReU[k]
+        nrpy.sfrhs.sf_rhs       += diss_strength.representation*   sf_dKOD[k]*nrpy.rfm.ReU[k]
+        nrpy.sfrhs.sfM_rhs      += diss_strength.representation*  sfM_dKOD[k]*nrpy.rfm.ReU[k]
+        for i in range(3):
+            if "2ndOrder" in numerical_integration.shift_condition:
+                nrpy.gaugerhs.bet_rhsU[i] += diss_strength.representation*   betU_dKOD[i][k]*nrpy.rfm.ReU[k]
+            nrpy.gaugerhs.vet_rhsU[i]     += diss_strength.representation*   vetU_dKOD[i][k]*nrpy.rfm.ReU[k]
+            nrpy.rhs.lambda_rhsU[i]       += diss_strength.representation*lambdaU_dKOD[i][k]*nrpy.rfm.ReU[k]
+            for j in range(3):
+                nrpy.rhs.a_rhsDD[i][j] += diss_strength.representation*aDD_dKOD[i][j][k]*nrpy.rfm.ReU[k]
+                nrpy.rhs.h_rhsDD[i][j] += diss_strength.representation*hDD_dKOD[i][j][k]*nrpy.rfm.ReU[k]
