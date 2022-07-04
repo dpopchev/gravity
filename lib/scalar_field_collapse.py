@@ -37,3 +37,6 @@ def build():
 
     converter_adm_bssn_init_data = build_converter_adm_bssn_init_data(ccodes_dir, coord_system)
     converter_adm_bssn_init_data.doit()
+
+    lapse_evolution_option = adapters.InterfaceParameter.build('BSSN.BSSN_gauge_RHSs::LapseEvolutionOption', numerical_integration.lapse_condition)
+    lapse_evolution_option = adapters.InterfaceParameter.build('BSSN.BSSN_gauge_RHSs::ShiftEvolutionOption', numerical_integration.shift_condition)
