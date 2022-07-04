@@ -207,6 +207,15 @@ def build_cparamters_headers(ccodes_dir, coord_system):
 
     return
 
+def build_boundary_condition(ccodes_dir):
+    boundary_condition = ccodes_dir.make_under_root("boundary_conditions/")
+
+    nrpy.cbcs.Set_up_CurviBoundaryConditions(
+        boundary_condition,
+        Cparamspath=os.path.join("../"),
+        path_prefix='../nrpytutorial')
+    return
+
 def build():
     ccodes_dir = adapters.CcodesDir.build()
     dim = adapters.InterfaceParameter.build('grid::DIM', 3)
@@ -247,12 +256,6 @@ def build():
     build_ricci(ccodes_dir)
     build_hamiltonian(ccodes_dir)
     build_cparamters_headers(ccodes_dir, coord_system)
-
-    boundary_condition = ccodes_dir.make_under_root("boundary_conditions/")
-
-    nrpy.cbcs.Set_up_CurviBoundaryConditions(
-        boundary_condition,
-        Cparamspath=os.path.join("../"),
-        path_prefix='../nrpytutorial')
+    build_boundary_condition(ccodes_dir)
 
     return
