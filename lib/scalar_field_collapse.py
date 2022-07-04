@@ -251,6 +251,8 @@ def build():
     boundary_condition = ccodes_dir.make_under_root("boundary_conditions/")
 
     nrpy.cbcs.Set_up_CurviBoundaryConditions(
-        boundary_condition, Cparamspath=os.path.join("../"), path_prefix='../nrpytutorial')
+        boundary_condition,
+        Cparamspath=os.path.join("../"),
+        path_prefix='../nrpytutorial')
 
     return
