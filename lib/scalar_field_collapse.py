@@ -120,3 +120,13 @@ def build():
             for j in range(3):
                 nrpy.rhs.a_rhsDD[i][j] += diss_strength.representation*aDD_dKOD[i][j][k]*nrpy.rfm.ReU[k]
                 nrpy.rhs.h_rhsDD[i][j] += diss_strength.representation*hDD_dKOD[i][j][k]*nrpy.rfm.ReU[k]
+
+
+    # Now that we are finished with all the rfm hatted
+    #           quantities in generic precomputed functional
+    #           form, let's restore them to their closed-
+    #           form expressions.
+    # Reset to False to disable rfm_precompute.
+    enable_rfm_precompute = adapters.InterfaceParameter.build("reference_metric::enable_rfm_precompute","False")
+    nrpy.rfm.ref_metric__hatted_quantities()
+    print("Finished BSSN symbolic expressions")
