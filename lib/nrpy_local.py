@@ -18,3 +18,4 @@ import BSSN.BSSN_stress_energy_source_terms as Bsest
 import BSSN.BSSN_quantities as Bq
 import BSSN.Enforce_Detgammahat_Constraint as EGC
 import BSSN.BSSN_constraints as bssncon
+import CurviBoundaryConditions.CurviBoundaryConditions as cbcs
