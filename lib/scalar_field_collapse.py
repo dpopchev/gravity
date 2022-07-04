@@ -72,3 +72,8 @@ def build():
         nrpy.rhs.lambda_rhsU[i]    += nrpy.Bsest.sourceterm_lambda_rhsU[i]
         for j in range(dim.value):
             nrpy.rhs.a_rhsDD[i][j] += nrpy.Bsest.sourceterm_a_rhsDD[i][j]
+
+    nrpy.gaugerhs.BSSN_gauge_RHSs()
+    # We use betaU as our upwinding control vector:
+    nrpy.Bq.BSSN_basic_tensors()
+    betaU = nrpy.Bq.betaU
